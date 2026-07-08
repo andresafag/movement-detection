@@ -1,0 +1,28 @@
+# ESP-IDF build output
+build/
+sdkconfig.old
+
+# Dependencies managed by ESP-IDF component manager
+managed_components/
+
+# Eclipse CDT project files
+.project
+.cproject
+.settings/
+
+# CLangd compilation database (generated from build/)
+.clangd
+
+# Python virtual environment (if used locally)
+.venv/
+__pycache__/
+*.pyc
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
