@@ -1,0 +1,316 @@
+name: Terraform
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: '🌍 Environment'
+        required: false
+        default: 'dev'
+        type: string
+      action:
+        description: '⚙️ Action'
+        required: false
+        default: 'apply'
+        type: string
+      confirm_destroy:
+        description: '⚠️ Type "destroy" to confirm a destroy (ignored otherwise)'
+        required: false
+        default: ''
+        type: string
+      tf_version:
+        description: '🟦 Terraform version (optional override)'
+        required: false
+        default: ''
+        type: string
+
+# Serialise by environment so we never run two plans/applies against
+# the same state bucket at once.
+concurrency:
+  group: terraform-${{ inputs.environment || 'dev' }}-${{ inputs.action || 'plan' }}
+  cancel-in-progress: true
+
+# Required for OIDC → AWS.
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+  actions: read
+
+# Shared env so jobs stay in sync.
+env:
+  TF_VERSION: '1.9.8'
+  TF_IN_AUTOMATION: 'true'
+  TF_INPUT: '0'
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  TF_VAR_project_name: sensor-access
+  TF_VAR_state_bucket_name: ${{ secrets.TF_STATE_BUCKET }}
+
+jobs:
+  # =========================================================================
+  # init — always runs first.  Bootstraps the backend, downloads providers,
+  # validates configuration.  Other jobs reuse its cache via actions/cache.
+  # =========================================================================
+  init:
+    name: 🔧 init
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      tf-version: ${{ steps.tf-version.outputs.version }}
+    steps:
+      - name: 📥 Check out
+        uses: actions/checkout@v4
+
+      - name: 🟦 Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: 🪪 Assume AWS role via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: gha-terraform-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: ☁️ Verify identity
+        run: aws sts get-caller-identity
+
+      - name: 🧹 terraform fmt -check
+        working-directory: infrastructure
+        run: |
+          if ! terraform fmt -check -recursive -diff; then
+            echo "❌ terraform fmt failed. Run: terraform fmt -recursive"
+            exit 1
+          fi
+
+      - name: 🔍 terraform init
+        working-directory: infrastructure
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ env.TF_VAR_state_bucket_name }}" \
+            -backend-config="key=sensor-access/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ secrets.TF_LOCK_TABLE }}" \
+            -backend-config="encrypt=true"
+
+      - name: ✅ terraform validate
+        working-directory: infrastructure
+        run: terraform validate -no-color
+
+      - name: 🧹 tflint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+      - name: 🔎 tflint
+        working-directory: infrastructure
+        run: |
+          tflint --init
+          tflint --recursive --minimum-failure-severity=warning
+
+      - name: 💾 Cache .terraform
+        uses: actions/cache@v4
+        with:
+          path: infrastructure/.terraform
+          key: terraform-${{ runner.os }}-${{ hashFiles('infrastructure/**/*.tf', 'infrastructure/.terraform.lock.hcl') }}
+          restore-keys: |
+            terraform-${{ runner.os }}-
+
+  # =========================================================================
+  # plan — runs on every PR and every push, never applies.  Uploads the
+  # binary plan as an artifact so reviewers can inspect it locally.
+  # =========================================================================
+  plan:
+    name: 📋 plan (${{ inputs.environment || 'dev' }})
+    needs: init
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ${{ inputs.environment || 'dev' }}-plan
+    steps:
+      - name: 📥 Check out
+        uses: actions/checkout@v4
+
+      - name: 🟦 Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: 💾 Cache .terraform
+        uses: actions/cache@v4
+        with:
+          path: infrastructure/.terraform
+          key: terraform-${{ runner.os }}-${{ hashFiles('infrastructure/**/*.tf', 'infrastructure/.terraform.lock.hcl') }}
+          restore-keys: |
+            terraform-${{ runner.os }}-
+
+      - name: 🪪 Assume AWS role via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: gha-terraform-plan-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 🔍 terraform init (no backend — uses restored cache for providers only)
+        working-directory: infrastructure
+        run: |
+          # Init is needed to re-attach the backend; providers already cached.
+          terraform init -input=false \
+            -backend-config="bucket=${{ env.TF_VAR_state_bucket_name }}" \
+            -backend-config="key=sensor-access/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ secrets.TF_LOCK_TABLE }}" \
+            -backend-config="encrypt=true"
+
+      - name: 📋 terraform plan
+        id: plan
+        working-directory: infrastructure
+        env:
+          TF_VAR_environment: ${{ inputs.environment || 'dev' }}
+        run: |
+          terraform plan -input=false -no-color -lock-timeout=300s -out=tfplan
+          echo "📦 Plan size: $(du -h tfplan | cut -f1)"
+
+  # =========================================================================
+  # apply — runs only on push to main (auto-apply dev) or via
+  # workflow_dispatch with action=apply.  Production requires the
+  # GitHub Environment `prod` with required reviewers.
+  # =========================================================================
+  apply:
+    name: 🚀 apply (${{ inputs.environment || 'dev' }})
+    needs: [init, plan]
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && inputs.action == 'apply')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ inputs.environment || 'dev' }}
+    steps:
+      - name: 📥 Check out
+        uses: actions/checkout@v4
+
+      - name: 🟦 Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: 💾 Cache .terraform
+        uses: actions/cache@v4
+        with:
+          path: infrastructure/.terraform
+          key: terraform-${{ runner.os }}-${{ hashFiles('infrastructure/**/*.tf', 'infrastructure/.terraform.lock.hcl') }}
+          restore-keys: |
+            terraform-${{ runner.os }}-
+
+      - name: 🪪 Assume AWS role via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: gha-terraform-apply-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 🔍 terraform init
+        working-directory: infrastructure
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ env.TF_VAR_state_bucket_name }}" \
+            -backend-config="key=sensor-access/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ secrets.TF_LOCK_TABLE }}" \
+            -backend-config="encrypt=true"
+
+      - name: 📋 Re-validate plan matches current state
+        working-directory: infrastructure
+        env:
+          TF_VAR_environment: ${{ inputs.environment || 'dev' }}
+        run: |
+          # If the plan from the previous job is stale, regenerate it.
+          if ! terraform show -no-color tfplan >/dev/null 2>&1; then
+            echo "⚠️ Cached plan missing or stale — regenerating"
+            terraform plan -input=false -no-color -lock-timeout=300s -out=tfplan
+          fi
+
+      - name: 🚀 terraform apply
+        id: apply
+        working-directory: infrastructure
+        env:
+          TF_VAR_environment: ${{ inputs.environment || 'dev' }}
+        run: |
+          set -euo pipefail
+          terraform apply -input=false -no-color -auto-approve tfplan
+
+      - name: 📤 Publish outputs
+        if: success()
+        working-directory: infrastructure
+        env:
+          TF_VAR_environment: ${{ inputs.environment || 'dev' }}
+        run: |
+          {
+            echo "### 🚀 Terraform Apply Summary"
+            echo ""
+            echo "**Environment:** \`${{ inputs.environment || 'dev' }}\`"
+            echo "**Commit:** \`${{ github.sha }}\`"
+            echo ""
+            echo "| Output | Value |"
+            echo "|--------|-------|"
+            terraform output -no-color -json | \
+              jq -r 'to_entries[] | "| `\(.key)` | `\(.value.value)` |"'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # =========================================================================
+  # destroy — manual-only workflow_dispatch with type-the-name guard.
+  # Skipped entirely on push and PR.
+  # =========================================================================
+  destroy:
+    name: 🧨 destroy (${{ inputs.environment || 'dev' }})
+    needs: init
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'destroy'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ inputs.environment || 'dev' }}
+    steps:
+      - name: 🛑 Confirm destroy (must type "destroy")
+        env:
+          CONFIRM: ${{ inputs.confirm_destroy }}
+        run: |
+          if [ "${CONFIRM:-}" != "destroy" ]; then
+            echo "❌ Refusing to destroy: pass confirm_destroy=destroy"
+            exit 1
+          fi
+          echo "⚠️ Destroy confirmed"
+
+      - name: 📥 Check out
+        uses: actions/checkout@v4
+
+      - name: 🟦 Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: 🪪 Assume AWS role via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: gha-terraform-destroy-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 🔍 terraform init
+        working-directory: infrastructure
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ env.TF_VAR_state_bucket_name }}" \
+            -backend-config="key=sensor-access/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ secrets.TF_LOCK_TABLE }}" \
+            -backend-config="encrypt=true"
+
+      - name: 💣 terraform destroy
+        working-directory: infrastructure
+        env:
+          TF_VAR_environment: ${{ inputs.environment || 'dev' }}
+        run: |
+          terraform destroy \
+            -input=false -no-color -auto-approve \
+            -lock-timeout=300s

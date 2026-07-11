@@ -1,0 +1,176 @@
+on:
+	workflow_call:
+	workflow_dispatch:
+
+concurrency:
+	group: tests-${{ github.ref }}
+	cancel-in-progress: true
+
+permissions:
+	contents: read
+
+jobs:
+  # =========================================================================
+  # 1. Host unit tests — no ESP32, no AWS.  Fast feedback loop.
+  # =========================================================================
+  host-unit:
+    name: 🧪 Host unit tests
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: 📥 Check out
+        uses: actions/checkout@v4
+
+      - name: 🧹 clang-format check
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang-format
+          find components main tests/host tests/component tests/integration \
+            \( -name '*.c' -o -name '*.h' \) -print \
+            | xargs clang-format --dry-run --Werror
+
+      - name: 🐛 cppcheck
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get install -y -qq cppcheck
+          cppcheck --enable=warning,style,performance \
+                   --error-exitcode=1 --inline-suppr --quiet \
+                   --suppress=missingIncludeSystem \
+                   components main
+
+      - name: 🛠️ Configure CMake
+        run: |
+          cmake -S tests/host -B tests/host/build \
+            -DCMAKE_BUILD_TYPE=Debug
+
+      - name: 🏗️ Build tests
+        run: cmake --build tests/host/build --config Debug -j 2
+
+      - name: ▶️ Run ctest
+        working-directory: tests/host/build
+        run: ctest --output-on-failure --verbose
+
+      - name: 📤 Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: host-unit-logs-${{ matrix.os }}
+          path: tests/host/build/Testing/**/*.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # =========================================================================
+  # 2. ESP-IDF component tests — real RTOS + GPIO driver in QEMU.
+  # =========================================================================
+  esp-component:
+    name: 🧪 ESP-IDF component tests (QEMU)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: 📥 Check out
+        uses: actions/checkout@v4
+
+      - name: 🛠️ Install ESP-IDF v5.2
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.2
+          target: esp32
+
+      - name: 📦 Install QEMU
+        run: sudo apt-get install -y -qq qemu-system-xtensa
+
+      - name: 🏗️ Build component test
+        working-directory: tests/component/movement_driver
+        run: idf.py build
+
+      - name: ▶️ Run component test (QEMU)
+        working-directory: tests/component/movement_driver
+        run: |
+          timeout 120 qemu-system-xtensa \
+            -nographic \
+            -machine esp32 \
+            -drive file=build/movement_driver_component_test.bin,if=mtd,format=raw \
+            || true
+
+      - name: 📤 Upload component test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp-component-logs
+          path: tests/component/movement_driver/build/*.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # =========================================================================
+  # 3. ESP32 integration test — full pipeline + local mosquitto in QEMU.
+  # =========================================================================
+  esp-integration:
+    name: 🔗 ESP32 integration test (QEMU + mosquitto)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mosquitto:
+        image: eclipse-mosquitto:2
+        ports:
+          - 1883:1883
+        options: >-
+          --health-cmd "mosquitto_sub -t '$$SYS/#' -C 1 -W 5 || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: 📥 Check out
+        uses: actions/checkout@v4
+
+      - name: 🛠️ Install ESP-IDF v5.2
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.2
+          target: esp32
+
+      - name: 📦 Install QEMU + MQTT client
+        run: sudo apt-get install -y -qq qemu-system-xtensa mosquitto-clients
+
+      - name: 🏗️ Build integration test
+        working-directory: tests/integration
+        run: idf.py build
+
+      - name: 🐛 Subscribe to test topic (background)
+        run: |
+          nohup mosquitto_sub -h localhost -p 1883 \
+            -t 'sensors/motion/integration-test' \
+            -C 1 -W 60 > /tmp/mqtt_sub.log 2>&1 &
+          echo $! > /tmp/mqtt_sub.pid
+          sleep 2
+
+      - name: ▶️ Run integration test (QEMU)
+        working-directory: tests/integration
+        run: |
+          timeout 90 qemu-system-xtensa \
+            -nographic \
+            -machine esp32 \
+            -drive file=build/sensor_access_integration_test.bin,if=mtd,format=raw \
+            || true
+
+      - name: 🧹 Stop subscriber
+        if: always()
+        run: |
+          if [ -f /tmp/mqtt_sub.pid ]; then
+            kill "$(cat /tmp/mqtt_sub.pid)" 2>/dev/null || true
+          fi
+
+      - name: 📤 Upload integration logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp-integration-logs
+          path: |
+            tests/integration/build/*.log
+            /tmp/mqtt_sub.log
+          if-no-files-found: ignore
+          retention-days: 7

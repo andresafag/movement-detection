@@ -2,6 +2,16 @@
 build/
 sdkconfig.old
 
+# Host test build output
+tests/host/build/
+tests/component/*/build/
+tests/integration/build/
+
+# QEMU emulator temp files
+*.qemu
+*.log
+/tmp/
+
 # Dependencies managed by ESP-IDF component manager
 managed_components/
 

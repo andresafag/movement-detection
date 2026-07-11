@@ -67,7 +67,7 @@ variable "sns_subscriber_emails" {
   description = "Email addresses that will receive sensor notifications via SNS"
   type        = list(string)
   default = [
-    "andresfelipeacostagarcia34@gmail.com",
+    "andresfelipeacostagarcia34@gmail.com", "brigethedith01@gmail.com"
   ]
 }
 
