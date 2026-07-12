@@ -32,7 +32,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq clang-format check
-          find components main tests/host tests/component tests/integration \( -name '*.c' -o -name '*.h' \) -exec clang-format -i {} +
+          find components main tests/host \( -name '*.c' -o -name '*.h' \) -exec clang-format -i {} +
 
       - name: 🐛 cppcheck
         if: matrix.os == 'ubuntu-latest'
