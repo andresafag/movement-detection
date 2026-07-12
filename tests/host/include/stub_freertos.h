@@ -22,8 +22,8 @@ typedef uint32_t TickType_t;
 
 /* Return values for queue operations. */
 typedef enum {
-    pdPASS = 0,
-    pdFAIL = 1,
+	pdPASS = 0,
+	pdFAIL = 1,
 } BaseType_t;
 
 /* Opaque handle types — we tag them with the kind we use. */
@@ -37,27 +37,27 @@ typedef uint32_t          UBaseType_t;
 #define HOST_QUEUE_ELEM_SIZE sizeof(uint32_t)
 
 struct HostQueue {
-    uint8_t  storage[HOST_QUEUE_CAPACITY * HOST_QUEUE_ELEM_SIZE];
-    size_t   head;
-    size_t   tail;
-    size_t   count;
-    size_t   capacity;
-    size_t   elem_size;
-    bool     full;
+	uint8_t  storage[HOST_QUEUE_CAPACITY * HOST_QUEUE_ELEM_SIZE];
+	size_t   head;
+	size_t   tail;
+	size_t   count;
+	size_t   capacity;
+	size_t   elem_size;
+	bool     full;
 };
 
 /* Counters exposed to tests so we can assert on side effects. */
 typedef struct {
-    uint32_t tasks_created;
-    uint32_t task_create_failures;
-    uint32_t isrs_installed;
-    uint32_t isr_handlers_added;
-    uint32_t queues_created;
-    uint32_t queue_send_count;
-    uint32_t queue_receive_count;
-    uint32_t queue_reset_count;
-    uint32_t delays_requested_ms;
-    uint32_t yields_from_isr;
+	uint32_t tasks_created;
+	uint32_t task_create_failures;
+	uint32_t isrs_installed;
+	uint32_t isr_handlers_added;
+	uint32_t queues_created;
+	uint32_t queue_send_count;
+	uint32_t queue_receive_count;
+	uint32_t queue_reset_count;
+	uint32_t delays_requested_ms;
+	uint32_t yields_from_isr;
 } HostRtosCounters;
 
 extern HostRtosCounters g_host_rtos;
@@ -84,49 +84,49 @@ void          host_task_set_create_return(BaseType_t rv);
 /* xQueueCreate is a macro in FreeRTOS that picks the correct backend
  * (queue.c) — we just route it to our host implementation. */
 static inline QueueHandle_t xQueueCreate(UBaseType_t uxQueueLength, UBaseType_t uxItemSize) {
-    return host_queue_create(uxQueueLength, uxItemSize);
+	return host_queue_create(uxQueueLength, uxItemSize);
 }
 
 static inline BaseType_t xQueueSendFromISR(QueueHandle_t q, const void *pvItemToQueue, BaseType_t *pxHigherPriorityTaskWoken) {
-    if (pxHigherPriorityTaskWoken) {
-        *pxHigherPriorityTaskWoken = pdTRUE;
-        g_host_rtos.yields_from_isr++;
-    }
-    return host_queue_send_from_isr(q, pvItemToQueue);
+	if (pxHigherPriorityTaskWoken) {
+		*pxHigherPriorityTaskWoken = pdTRUE;
+		g_host_rtos.yields_from_isr++;
+	}
+	return host_queue_send_from_isr(q, pvItemToQueue);
 }
 
 static inline BaseType_t xQueueReceive(QueueHandle_t q, void *pvBuffer, TickType_t xTicksToWait) {
-    return host_queue_receive(q, pvBuffer, xTicksToWait);
+	return host_queue_receive(q, pvBuffer, xTicksToWait);
 }
 
 static inline BaseType_t xQueueReset(QueueHandle_t q) {
-    return host_queue_reset(q);
+	return host_queue_reset(q);
 }
 
 static inline void vTaskDelay(TickType_t xTicksToDelay) {
-    g_host_rtos.delays_requested_ms += (uint32_t)xTicksToDelay;
+	g_host_rtos.delays_requested_ms += (uint32_t)xTicksToDelay;
 }
 
 static inline void portYIELD_FROM_ISR(void) {
-    g_host_rtos.yields_from_isr++;
+	g_host_rtos.yields_from_isr++;
 }
 
 static inline BaseType_t xTaskCreate(TaskFunction_t pxTaskCode, const char *const pcName,
-                                     uint32_t usStackDepth, void *pvParameters,
-                                     UBaseType_t uxPriority, TaskHandle_t *pxCreatedTask) {
-    (void)pcName;
-    (void)usStackDepth;
-    (void)pvParameters;
-    (void)uxPriority;
-    (void)pxCreatedTask;
-    s_last_task_body = pxTaskCode;
-    if (s_task_create_return == pdPASS) {
-        g_host_rtos.tasks_created++;
-        return pdPASS;
-    } else {
-        g_host_rtos.task_create_failures++;
-        return pdFAIL;
-    }
+									 uint32_t usStackDepth, void *pvParameters,
+									 UBaseType_t uxPriority, TaskHandle_t *pxCreatedTask) {
+	(void)pcName;
+	(void)usStackDepth;
+	(void)pvParameters;
+	(void)uxPriority;
+	(void)pxCreatedTask;
+	s_last_task_body = pxTaskCode;
+	if (s_task_create_return == pdPASS) {
+		g_host_rtos.tasks_created++;
+		return pdPASS;
+	} else {
+		g_host_rtos.task_create_failures++;
+		return pdFAIL;
+	}
 }
 
 #endif /* HOST_STUB_FREERTOS_H */
