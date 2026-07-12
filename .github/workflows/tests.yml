@@ -27,13 +27,22 @@ jobs:
       - name: 📥 Check out
         uses: actions/checkout@v4
 
-      - name: 🧹 clang-format check
+      - name: 🧹 clang-format check Ubuntu
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq clang-format check
           find components main tests/host \( -name '*.c' -o -name '*.h' \) -exec clang-format -i {} +
-
+		  
+	  - name: 🧹 clang-format check Windows
+	  	if: matrix=='windows-latest'
+		run: |
+		  Set-ExecutionPolicy Bypass -Scope Process -Force
+		  [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+		  Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org'))
+		  $env:Path += ";$env:ALLUSERSPROFILE\chocolatey\bin"
+		  choco install pkgconfiglite --no-progress -y
+			
       - name: 🐛 cppcheck
         if: matrix.os == 'ubuntu-latest'
         run: |
