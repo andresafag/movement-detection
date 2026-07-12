@@ -166,9 +166,8 @@ jobs:
           echo "::error title=AI Pipeline Diagnostic::$AI_ANALYSIS"
           
           # Try to post to PR if context exists
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [ "${{ github.event_name }}" = "push" ]; then
             COMMENT_BODY="## 🤖 OpenAI Pipeline Correction Analysis"$'\n'"$AI_ANALYSIS"
-            gh pr comment ${{ github.event.pull_request.number }} --body "$COMMENT_BODY" || echo "PR comment failed, check workflow permissions."
           fi
 
       # -------------------------------------------------
