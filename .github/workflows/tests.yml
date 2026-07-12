@@ -33,16 +33,14 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq clang-format check
           find components main tests/host \( -name '*.c' -o -name '*.h' \) -exec clang-format -i {} +
-		  
       - name: 🧹 clang-format check Windows
         if: matrix.os == 'windows-latest'
         run: |
-            Set-ExecutionPolicy Bypass -Scope Process -Force
-            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
-            Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org'))
-            $env:Path += ";$env:ALLUSERSPROFILE\chocolatey\bin"
-            choco install pkgconfiglite --no-progress -y
-			
+          Set-ExecutionPolicy Bypass -Scope Process -Force
+          [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+          Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org'))
+          $env:Path += ";$env:ALLUSERSPROFILE\chocolatey\bin"
+          choco install pkgconfiglite --no-progress -y
       - name: 🐛 cppcheck
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -56,7 +54,7 @@ jobs:
         shell: bash
         run: |
           cmake -S tests/host -B tests/host/build \
-           -DCMAKE_BUILD_TYPE=Debug
+            -DCMAKE_BUILD_TYPE=Debug
 
       - name: 🏗️ Build tests
         run: cmake --build tests/host/build --config Debug -j 2
@@ -136,7 +134,7 @@ jobs:
           esp_idf_version: v5.2
           target: esp32
 
-      - name: � Start mosquitto broker
+      - name: Start mosquitto broker
         run: |
           docker rm -f mosquitto 2>/dev/null || true
           docker run -d --name mosquitto -p 1883:1883 eclipse-mosquitto:2
@@ -148,7 +146,7 @@ jobs:
           done
           docker ps --filter name=mosquitto
 
-      - name: �📦 Install QEMU + MQTT client
+      - name: Install QEMU + MQTT client
         run: sudo apt-get install -y -qq qemu-system-xtensa mosquitto-clients
 
       - name: 🧹 Reset component lockfile
