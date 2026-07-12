@@ -133,22 +133,7 @@ jobs:
           )
           
           cmake @cmakeArgs
-
-      # -------------------------------------------------
-      # 5️⃣ Build tests
-      # -------------------------------------------------
-      - name: 🏗️ Build tests (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
-        run: cmake --build tests/host/build --config Debug -j 2
-
-      - name: 🏗️ Build tests (Windows)
-        if: matrix.os == 'windows-latest'
-        # Using forward slashes to avoid YAML escaping issues
-        env:
-          LIB: "${{ env.USERPROFILE }}/vcpkg/installed/x64-windows/lib;${{ env.LIB }}"
-        run: cmake --build tests/host/build --config Debug -j 2
-        
-
+      
       - name: Analyze Pipeline Failure with AI
         if: failure() && github.event_name == 'pull_request'
         env:
@@ -200,6 +185,20 @@ jobs:
           
           # 6. Post the comment directly to the Pull Request using GitHub CLI
           gh pr comment ${{ github.event.pull_request.number }} --body "$COMMENT_BODY"
+
+      # -------------------------------------------------
+      # 5️⃣ Build tests
+      # -------------------------------------------------
+      - name: 🏗️ Build tests (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: cmake --build tests/host/build --config Debug -j 2
+
+      - name: 🏗️ Build tests (Windows)
+        if: matrix.os == 'windows-latest'
+        # Using forward slashes to avoid YAML escaping issues
+        env:
+          LIB: "${{ env.USERPROFILE }}/vcpkg/installed/x64-windows/lib;${{ env.LIB }}"
+        run: cmake --build tests/host/build --config Debug -j 2
 
       # -------------------------------------------------
       # 6️⃣ Run tests
