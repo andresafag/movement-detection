@@ -45,7 +45,7 @@ jobs:
       # 2️⃣ Install dependencies (Windows – vcpkg + Check + pkgconf)
       # -------------------------------------------------
       - name: 🛠️ Install Windows deps (vcpkg + Check + pkgconf)
-        if: matrix.os == 'windows-latest == 'windows-latest'
+        if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
           # ---- Bootstrap vcpkg (once per runner) ----
