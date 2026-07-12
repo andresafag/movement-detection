@@ -38,17 +38,41 @@ jobs:
             pkg-config \
             cmake
 
-      - name: 🛠️ Install Windows deps
+      - name: 🛠️ Install Windows deps (vcpkg + Check)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          # vcpkg must be bootstrapped once per runner
-          if (-not (Test-Path "$env:USERPROFILE\vcpkg\bootstrap.vcpkg.exe")) {
-            git clone https://github.com/microsoft/vcpkg.git "$env:USERPROFILE\vcpkg"
-            & "$env:USERPROFILE\vcpkg\bootstrap-vcpkg.bat"
+          # ---- Bootstrap vcpkg (once per runner) ----
+          $vcpkgRoot = "$env:USERPROFILE\vcpkg"
+          if (-not (Test-Path "$vcpkgRoot\bootstrap.vcpkg.exe")) {
+            Write-Host "Cloning vcpkg..."
+            git clone https://github.com/microsoft/vcpkg.git $vcpkgRoot
+            Write-Host "Bootstrapping vcpkg..."
+            & "$vcpkgRoot\bootstrap-vcpkg.bat"
+          } else {
+            Write-Host "vcpkg already bootstrapped at $vcpkgRoot"
           }
-          # Install Check (static library) for the x64-windows triplet
-          & "$env:USERPROFILE\vcpkg\vcpkg.exe" install check:x64-windows
+
+          # ---- Install Check (static lib) for x64-windows ----
+          Write-Host "Installing Check via vcpkg..."
+          & "$vcpkgRoot\vcpkg.exe" install check:x64-windows
+
+          # ---- Verify that the tool‑chain file exists ----
+          $toolchain = Join-Path $vcpkgRoot 'scripts/buildsystems/vcpkg.cmake'
+          if (-not (Test-Path $toolchain)) {
+            Write-Error "❌ vcpkg tool‑chain file not found at $toolchain"
+            exit 1
+          }
+          Write-Host "✅ Tool‑chain file found: $toolchain"
+
+          # ---- Configure CMake, passing the tool‑chain file safely ----
+          Write-Host "Configuring CMake..."
+          cmake -S tests/host -B tests/host/build `
+                -G "Visual Studio 18 2026" `
+                -DCMAKE_BUILD_TYPE=Debug `
+                -DCMAKE_TOOLCHAIN_FILE=$($toolchain) `   # <-- forced expansion, no trailing space
+                -DVCPKG_TARGET_TRIPLET=x64-windows `
+                -DCMAKE_C_FLAGS="/wd4005"
 
       # -------------------------------------------------
       # 2️⃣ (Ubuntu only) Run clang‑format & cppcheck
