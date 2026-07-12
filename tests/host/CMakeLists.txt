@@ -36,10 +36,7 @@ endif()
 # the firmware calls.  These live in tests/host/ and are linked in below.
 # ---------------------------------------------------------------------------
 add_library(host_stubs STATIC
-    stub_freertos.c
-    stub_driver_gpio.c
-    stub_esp_log.c
-    stub_esp_err.c
+    test.c
 )
 target_include_directories(host_stubs PUBLIC include)
 
