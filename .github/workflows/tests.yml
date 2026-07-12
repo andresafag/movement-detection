@@ -48,7 +48,7 @@ jobs:
         run: |
           cmake -S tests/host -B tests/host/build \
             -DCMAKE_BUILD_TYPE=Debug \
-            --debugger --debugger-pipe "${{ runner.temp }}/cmake-debug.pipeg
+            --debugger --debugger-pipe "${{ runner.temp }}/cmake-debug.pipe"
 
       - name: 🏗️ Build tests
         run: cmake --build tests/host/build --config Debug -j 2
@@ -86,6 +86,9 @@ jobs:
       - name: 📦 Install QEMU
         run: sudo apt-get install -y -qq qemu-system-xtensa
 
+      - name: 🧹 Reset component lockfile
+        run: rm -f dependencies.lock
+
       - name: 🏗️ Build component test
         working-directory: tests/component/movement_driver
         run: idf.py build
@@ -115,16 +118,6 @@ jobs:
     name: 🔗 ESP32 integration test (QEMU + mosquitto)
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    services:
-      mosquitto:
-        image: eclipse-mosquitto:2
-        ports:
-          - 1883:1883
-        options: >-
-          --health-cmd "mosquitto_sub -t '$$SYS/#' -C 1 -W 5 || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     steps:
       - name: 📥 Check out
         uses: actions/checkout@v4
@@ -135,8 +128,23 @@ jobs:
           esp_idf_version: v5.2
           target: esp32
 
-      - name: 📦 Install QEMU + MQTT client
+      - name: � Start mosquitto broker
+        run: |
+          docker rm -f mosquitto 2>/dev/null || true
+          docker run -d --name mosquitto -p 1883:1883 eclipse-mosquitto:2
+          for i in $(seq 1 15); do
+            if docker exec mosquitto mosquitto_sub -t '$$SYS/#' -C 1 -W 2 >/tmp/mosquitto_health.log 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+          docker ps --filter name=mosquitto
+
+      - name: �📦 Install QEMU + MQTT client
         run: sudo apt-get install -y -qq qemu-system-xtensa mosquitto-clients
+
+      - name: 🧹 Reset component lockfile
+        run: rm -f dependencies.lock
 
       - name: 🏗️ Build integration test
         working-directory: tests/integration
@@ -165,6 +173,10 @@ jobs:
           if [ -f /tmp/mqtt_sub.pid ]; then
             kill "$(cat /tmp/mqtt_sub.pid)" 2>/dev/null || true
           fi
+
+      - name: 🧹 Stop mosquitto broker
+        if: always()
+        run: docker rm -f mosquitto 2>/dev/null || true
 
       - name: 📤 Upload integration logs
         if: always()
