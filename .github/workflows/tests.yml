@@ -39,9 +39,9 @@ jobs:
             cmake
 
       # -------------------------------------------------
-      # 2️⃣ Install Windows dependencies (vcpkg + Check)
+      # 2️⃣ Install Windows dependencies (vcpkg + Check + pkgconf)
       # -------------------------------------------------
-      - name: 🛠️ Install Windows deps (vcpkg + Check)
+      - name: 🛠️ Install Windows deps (vcpkg + Check + pkgconf)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
@@ -56,9 +56,9 @@ jobs:
             Write-Host "vcpkg already bootstrapped at $vcpkgRoot"
           }
 
-          # ---- Install Check (static lib) for x64-windows ----
-          Write-Host "Installing Check via vcpkg..."
-          & "$vcpkgRoot\vcpkg.exe" install check:x64-windows
+          # ---- Install Check and pkgconf (static libs) for x64-windows ----
+          Write-Host "Installing Check and pkgconf via vcpkg..."
+          & "$vcpkgRoot\vcpkg.exe" install check:x64-windows pkgconf:x64-windows
 
           # ---- Verify that the tool‑chain file exists ----
           $toolchain = Join-Path $vcpkgRoot 'scripts/buildsystems/vcpkg.cmake'
