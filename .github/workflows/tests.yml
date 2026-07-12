@@ -113,14 +113,10 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          $vcpkgRoot = "$env:USERPROFILE\vcpkg"
-          $toolchain = Join-Path $vcpkgRoot 'scripts/buildsystems/vcpkg.cmake'
-
+          # No explicit tool‑chain file needed – vcpkg integration makes find_package work
           cmake -S tests/host -B tests/host/build `
             -G "Visual Studio 18 2026" `
             -DCMAKE_BUILD_TYPE=Debug `
-            -DCMAKE_TOOLCHAIN_FILE=$toolchain `
-            -DVCPKG_TARGET_TRIPLET=x64-windows `
             -DCMAKE_C_FLAGS="/wd4005"   # suppress harmless -pthread warning on MSVC
 
       # -------------------------------------------------
@@ -132,8 +128,8 @@ jobs:
 
       - name: 🏗️ Build tests (Windows)
         if: matrix.os == 'windows-latest'
+        
         env:
-          # Prepend the vcpkg lib directory so link.exe can find check.lib
           LIB: "${{ env.USERPROFILE }}\\vcpkg\\installed\\x64-windows\\lib;${{ env.LIB }}"
         run: cmake --build tests/host/build --config Debug -j 2
 
