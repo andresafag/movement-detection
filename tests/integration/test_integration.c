@@ -47,18 +47,19 @@
 
 static const char *TAG = "test_integration";
 
-#define TEST_TOPIC       "sensors/motion/integration-test"
-#define TEST_PAYLOAD     "{\"event\":\"motion_detected\"}"
+#define TEST_TOPIC "sensors/motion/integration-test"
+#define TEST_PAYLOAD "{\"event\":\"motion_detected\"}"
 #define EXPECTED_TIMEOUT_MS 15000
 
 static esp_err_t example_connect(void)
 {
-    ESP_LOGW(TAG, "Wi-Fi example helper unavailable; skipping connection setup");
+    ESP_LOGW(TAG,
+             "Wi-Fi example helper unavailable; skipping connection setup");
     return ESP_OK;
 }
 
 static volatile bool s_message_received = false;
-static char         s_received_payload[256] = {0};
+static char s_received_payload[256] = {0};
 
 /* Stub the mqtt_aws_publish function for the integration test by
  * pointing the production call to a local broker.  The real
@@ -109,12 +110,14 @@ TEST_CASE("queue handles a burst of synthetic events", "[integration]")
     TEST_ASSERT_TRUE(true);
 }
 
-void app_main(void) {
+void app_main(void)
+{
     ESP_LOGI(TAG, "Booting sensor-access integration test");
 
     /* ---- System bring-up ---- */
     esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
+        ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
         ret = nvs_flash_init();
     }
@@ -123,11 +126,12 @@ void app_main(void) {
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-    /* Bring up Wi-Fi (CONFIG_EXAMPLE_CONNECT_WIFI or similar).  Skip
+    /* Bring up Wi-Fi (CONFIG_EXAMPLE_CONNECT_WIFI or similar). Skip
      * silently if the user has not configured credentials. */
     esp_err_t wifi_rv = example_connect();
     if (wifi_rv != ESP_OK) {
-        ESP_LOGW(TAG, "Wi-Fi not configured — running tests without network");
+        ESP_LOGW(TAG,
+                 "Wi-Fi not configured — running tests without network");
     } else {
         ESP_LOGI(TAG, "Wi-Fi connected");
     }

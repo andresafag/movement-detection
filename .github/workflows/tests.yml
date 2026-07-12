@@ -46,6 +46,7 @@ jobs:
                    components main
 
       - name: 🛠️ Configure CMake
+        shell: bash
         run: |
           cmake -S tests/host -B tests/host/build \
             -DCMAKE_BUILD_TYPE=Debug \
