@@ -1,5 +1,4 @@
 #include "stub_freertos.h"
-
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>

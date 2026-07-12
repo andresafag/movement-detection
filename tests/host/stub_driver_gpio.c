@@ -1,5 +1,4 @@
 #include "stub_driver_gpio.h"
-
 #include <string.h>
 
 HostGpioCounters g_host_gpio;
