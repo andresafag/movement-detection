@@ -46,7 +46,7 @@ jobs:
       - name: 🛠️ Configure CMake
         shell: bash
         run: |
-          cmake -S test/host -B test/host/build \
+          cmake -S tests/host -B tests/host/build \
            -DCMAKE_BUILD_TYPE=Debug
 
       - name: 🏗️ Build tests

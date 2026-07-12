@@ -1,38 +1,27 @@
-# Build all unit tests in this directory.
-#
-# Each test executable links the *real* movement-driver and mqtt-aws source
-# against the host stubs and the test framework.
+cmake_minimum_required(VERSION 3.10)
+project(SimpleTenTest C)
 
-# ---- Movement driver tests ----
-add_executable(test_movement_driver
-    test_movement_driver.c
-)
-target_link_libraries(test_movement_driver PRIVATE
-    movement_driver
-    host_stubs
-    m
-)
-add_test(NAME movement_driver COMMAND test_movement_driver)
+# 1. Configurar el estándar de C
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED ON)
 
-# ---- MQTT-AWS tests (currently a stub — verifies it returns ESP_OK) ----
-add_executable(test_mqtt_aws
-    test_mqtt_aws.c
-)
-target_link_libraries(test_mqtt_aws PRIVATE
-    mqtt_aws
-    host_stubs
-    m
-)
-add_test(NAME mqtt_aws COMMAND test_mqtt_aws)
+# 2. Buscar la librería "Check" instalada en el sistema
+find_library(CHECK_LIB NAMES check)
 
-# ---- Integration scenario: driver -> mqtt-aws publish pipeline ----
-add_executable(test_sensor_pipeline
-    test_sensor_pipeline.c
-)
-target_link_libraries(test_sensor_pipeline PRIVATE
-    movement_driver
-    mqtt_aws
-    host_stubs
-    m
-)
-add_test(NAME sensor_pipeline COMMAND test_sensor_pipeline)
+if(NOT CHECK_LIB)
+    message(FATAL_ERROR "¡No se encontró la librería Check! Por favor, instálala primero.")
+endif()
+
+# 3. Definir el ejecutable y sus archivos fuentes (.c)
+add_executable(ejecutable_pruebas math_utils.c test_simple.c)
+
+# 4. Vincular la librería Check al ejecutable
+target_link_libraries(ejecutable_pruebas PRIVATE ${CHECK_LIB})
+
+# 5. Agregar librerías auxiliares solo si estás en Linux (para evitar fallos en GitHub Actions)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    find_library(SUBUNIT_LIB NAMES subunit)
+    if(SUBUNIT_LIB)
+        target_link_libraries(ejecutable_pruebas PRIVATE ${SUBUNIT_LIB} m pthread rt)
+    endif()
+endif()
