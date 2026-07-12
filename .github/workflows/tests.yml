@@ -48,7 +48,6 @@ jobs:
         run: |
           cmake -S tests/host -B tests/host/build \
             -DCMAKE_BUILD_TYPE=Debug \
-            --debugger --debugger-pipe "${NATIVE_TEMP}\cmake-debug.pipe"
 
       - name: 🏗️ Build tests
         run: cmake --build tests/host/build --config Debug -j 2
