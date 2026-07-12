@@ -62,6 +62,7 @@ jobs:
         run: |
           choco install pkgconfiglite --no-progress --allow-empty-checksums -y
           vcpkg install check:x64-windows
+          $env:LIB = "C:\vcpkg\installed\x64-windows\lib;" + $env:LIB
           cmake -S tests/host -B tests/host/build `
             -G "Visual Studio 18 2026" `
             -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
@@ -87,6 +88,7 @@ jobs:
   # =========================================================================
   esp-component:
     name: 🧪 ESP-IDF component tests (QEMU)
+    needs: host-unit
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -132,6 +134,7 @@ jobs:
   # =========================================================================
   esp-integration:
     name: 🔗 ESP32 integration test (QEMU + mosquitto)
+    needs: host-unit
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
