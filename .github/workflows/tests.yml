@@ -21,11 +21,14 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
+      # -------------------------------------------------
+      # 0️⃣ Checkout
+      # -------------------------------------------------
       - name: 📥 Check out
         uses: actions/checkout@v4
 
       # -------------------------------------------------
-      # 1️⃣ Install dependencies (common to both OSes)
+      # 1️⃣ Install dependencies (Ubuntu)
       # -------------------------------------------------
       - name: 🛠️ Install Ubuntu deps
         if: matrix.os == 'ubuntu-latest'
@@ -39,7 +42,7 @@ jobs:
             cmake
 
       # -------------------------------------------------
-      # 2️⃣ Install Windows dependencies (vcpkg + Check + pkgconf)
+      # 2️⃣ Install dependencies (Windows – vcpkg + Check + pkgconf)
       # -------------------------------------------------
       - name: 🛠️ Install Windows deps (vcpkg + Check + pkgconf)
         if: matrix.os == 'windows-latest'
@@ -60,19 +63,19 @@ jobs:
           Write-Host "Installing Check and pkgconf via vcpkg..."
           & "$vcpkgRoot\vcpkg.exe" install check:x64-windows pkgconf:x64-windows
 
-          # ---- Verify that the toolchain file exists ----
+          # ---- Verify that the toolchain file exists (just a safety check) ----
           $toolchain = Join-Path $vcpkgRoot 'scripts/buildsystems/vcpkg.cmake'
           if (-not (Test-Path $toolchain)) {
             Write-Error "❌ vcpkg toolchain file not found at $toolchain"
             exit 1
           }
 
-          # ---- Integrate installed packages ----
+          # ---- Integrate installed packages so that find_package works without an explicit toolchain file ----
           Write-Host "Integrating vcpkg packages..."
           & "$vcpkgRoot\vcpkg.exe" integrate install
 
       # -------------------------------------------------
-      # 2️⃣ (Ubuntu only) Run clang‑format & cppcheck
+      # 3️⃣ (Ubuntu only) clang‑format & cppcheck
       # -------------------------------------------------
       - name: 🧹 clang-format check Ubuntu
         if: matrix.os == 'ubuntu-latest'
@@ -96,51 +99,45 @@ jobs:
                    components main
 
       # -------------------------------------------------
-      # 3️⃣ Configure CMake
+      # 4️⃣ Configure CMake
       # -------------------------------------------------
-      - name: 🛠️ Configure CMake pwsh
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
+      - name: 🛠️ Configure CMake (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
         run: |
-          # No toolchain file needed – vcpkg integration makes find_package work
-          cmake -S tests/host -B tests/host/build `
-            -G "Visual Studio 18 2026" `
-            -DCMAKE_BUILD_TYPE=Debug `
-            -DCMAKE_C_FLAGS="/wd4005"   # suppress harmless -pthread warning on MSVC
+          cmake -S tests/host -B tests/host/build \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_FLAGS="-Wno-unknown-warning-option"   # silence harmless -pthread warning on GCC/Clang
 
       - name: 🛠️ Configure CMake (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          # Point CMake at the vcpkg triplet we just installed
-          $vcpkgRoot = "$env:USERPROFILE\vcpkg"
-          $toolchain = Join-Path $vcpkgRoot 'scripts/buildsystems/vcpkg.cmake'
-
+          # No explicit toolchain file needed – vcpkg integration makes find_package work
           cmake -S tests/host -B tests/host/build `
             -G "Visual Studio 18 2026" `
             -DCMAKE_BUILD_TYPE=Debug `
-            -DCMAKE_TOOLCHAIN_FILE=$toolchain `
-            -DVCPKG_TARGET_TRIPLET=x64-windows `
-            -DCMAKE_C_FLAGS="/wd4005"   # optional: silence macro redefinition warnings from vcpkg headers
+            -DCMAKE_C_FLAGS="/wd4005"   # suppress harmless -pthread warning on MSVC
 
       # -------------------------------------------------
-      # 4️⃣ Build
+      # 5️⃣ Build tests
       # -------------------------------------------------
       - name: 🏗️ Build tests
+        # On Windows we need to tell the linker where to find vcpkg‑installed .lib files
         env:
-          LIB: "${{ env.USERPROFILE }}\vcpkg\installed\x64-windows\lib;${{ env.LIB }}"
-        run: |
-          cmake --build tests/host/build --config Debug -j 2
+          # Only set LIB on Windows; on Ubuntu the variable is harmless but we keep it defined for clarity
+          LIB: "${{ matrix.os == 'windows-latest' && format('{0}\vcpkg\installed\x64-windows\lib;{1}', env.USERPROFILE, env.LIB) || '' }}"
+        run: cmake --build tests/host/build --config Debug -j 2
 
       # -------------------------------------------------
-      # 5️⃣ Test
+      # 6️⃣ Run tests
       # -------------------------------------------------
       - name: ▶️ Run ctest
         working-directory: tests/host/build
         run: ctest --output-on-failure --verbose
 
       # -------------------------------------------------
-      # 6️⃣ Upload logs (unchanged)
+      # 7️⃣ Upload logs
       # -------------------------------------------------
       - name: 📤 Upload test logs
         if: always()
