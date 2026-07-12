@@ -60,7 +60,8 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          vcpkg integrate install
+          choco install pkgconfiglite --no-progress --allow-empty-checksums -y
+          vcpkg install check:x64-windows
           cmake -S tests/host -B tests/host/build `
             -G "Visual Studio 18 2026" `
             -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
