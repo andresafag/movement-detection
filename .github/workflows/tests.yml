@@ -135,7 +135,7 @@ jobs:
           cmake @cmakeArgs
       
       - name: Analyze Pipeline Failure with AI
-        if: failure() && github.event_name == 'pull_request'
+        if: failure() && github.event_name == 'push'
         env:
           OPENAI_API_KEY: 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
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
