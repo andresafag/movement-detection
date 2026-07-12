@@ -34,14 +34,14 @@ jobs:
           sudo apt-get install -y -qq clang-format check
           find components main tests/host \( -name '*.c' -o -name '*.h' \) -exec clang-format -i {} +
 		  
-	  - name: 🧹 clang-format check Windows
-	  	if: matrix=='windows-latest'
-		run: |
-		  Set-ExecutionPolicy Bypass -Scope Process -Force
-		  [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
-		  Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org'))
-		  $env:Path += ";$env:ALLUSERSPROFILE\chocolatey\bin"
-		  choco install pkgconfiglite --no-progress -y
+      - name: 🧹 clang-format check Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          Set-ExecutionPolicy Bypass -Scope Process -Force
+          [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+          Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org'))
+          $env:Path += ";$env:ALLUSERSPROFILE\chocolatey\bin"
+          choco install pkgconfiglite --no-progress -y
 			
       - name: 🐛 cppcheck
         if: matrix.os == 'ubuntu-latest'
