@@ -133,8 +133,9 @@ jobs:
       # -------------------------------------------------
       - name: 🏗️ Build tests
         env:
-          LIB: "${{ env.USERPROFILE }}\vcpkg\installed\x64-windows\lib;${{ env.LIB }}
-        run: cmake --build tests/host/build --config Debug -j 2
+          LIB: "${{ env.USERPROFILE }}\vcpkg\installed\x64-windows\lib;${{ env.LIB }}"
+        run: |
+          cmake --build tests/host/build --config Debug -j 2
 
       # -------------------------------------------------
       # 5️⃣ Test
