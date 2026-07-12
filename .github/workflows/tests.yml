@@ -86,8 +86,114 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          # No extra action needed – vcpkg already installed Check above
-          # (you can keep your existing clang‑format step here if you wish)
+          # No extra action needed – vcpkg already installed Check above.
+          # Keep this step if you want to run clang‑format on Windows as well.
+
+      - name: 🐛 cppcheck
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get install -y -qq cppcheck
+          cppcheck --enable=warning,style,performance \
+                   --error-exitcode=1 --inline-suppr --quiet \
+                   --suppress=missingIncludeSystem \
+                   components main
+
+      # -------------------------------------------------
+      # 4️⃣ Configure CMake
+      # (continues in next cell)
+</think>
+
+```yaml
+name: Tests
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  host-unit:
+    name: 🧪 Host unit tests
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      # -------------------------------------------------
+      # 0️⃣ Checkout
+      # -------------------------------------------------
+      - name: 📥 Check out
+        uses: actions/checkout@v4
+
+      # -------------------------------------------------
+      # 1️⃣ Install dependencies (Ubuntu)
+      # -------------------------------------------------
+      - name: 🛠️ Install Ubuntu deps
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            clang-format \
+            check \
+            cppcheck \
+            pkg-config \
+            cmake
+
+      # -------------------------------------------------
+      # 2️⃣ Install dependencies (Windows – vcpkg + Check + pkgconf)
+      # -------------------------------------------------
+      - name: 🛠️ Install Windows deps (vcpkg + Check + pkgconf)
+        if: matrix.os == 'windows-latest == 'windows-latest'
+        shell: pwsh
+        run: |
+          # ---- Bootstrap vcpkg (once per runner) ----
+          $vcpkgRoot = "$env:USERPROFILE\vcpkg"
+          if (-not (Test-Path "$vcpkgRoot\bootstrap.vcpkg.exe")) {
+            Write-Host "Cloning vcpkg..."
+            git clone https://github.com/microsoft/vcpkg.git $vcpkgRoot
+            Write-Host "Bootstrapping vcpkg..."
+            & "$vcpkgRoot\bootstrap-vcpkg.bat"
+          } else {
+            Write-Host "vcpkg already bootstrapped at $vcpkgRoot"
+          }
+
+          # ---- Install Check and pkgconf (static libs) for x64-windows ----
+          Write-Host "Installing Check and pkgconf via vcpkg..."
+          & "$vcpkgRoot\vcpkg.exe" install check:x64-windows pkgconf:x64-windows
+
+          # ---- Verify that the toolchain file exists (just a safety check) ----
+          $toolchain = Join-Path $vcpkgRoot 'scripts/buildsystems/vcpkg.cmake'
+          if (-not (Test-Path $toolchain)) {
+            Write-Error "❌ vcpkg toolchain file not found at $toolchain"
+            exit 1
+          }
+
+          # ---- Integrate installed packages so that find_package works without an explicit toolchain file ----
+          Write-Host "Integrating vcpkg packages..."
+          & "$vcpkgRoot\vcpkg.exe" integrate install
+
+      # -------------------------------------------------
+      # 3️⃣ (Ubuntu only) clang‑format & cppcheck
+      # -------------------------------------------------
+      - name: 🧹 clang-format check Ubuntu
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          find components main tests/host \( -name '*.c' -o -name '*.h' \) -exec clang-format -i {} +
+
+      - name: 🧹 clang-format check Windows
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          # No extra action needed – vcpkg already installed Check above.
+          # Keep this step if you want to run clang‑format on Windows as well.
 
       - name: 🐛 cppcheck
         if: matrix.os == 'ubuntu-latest'
@@ -122,11 +228,15 @@ jobs:
       # -------------------------------------------------
       # 5️⃣ Build tests
       # -------------------------------------------------
-      - name: 🏗️ Build tests
-        # On Windows we need to tell the linker where to find vcpkg‑installed .lib files
+      - name: 🏗️ Build tests (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: cmake --build tests/host/build --config Debug -j 2
+
+      - name: 🏗️ Build tests (Windows)
+        if: matrix.os == 'windows-latest'
         env:
-          # Only set LIB on Windows; on Ubuntu the variable is harmless but we keep it defined for clarity
-          LIB: "${{ matrix.os == 'windows-latest' && format('{0}\vcpkg\installed\x64-windows\lib;{1}', env.USERPROFILE, env.LIB) || '' }}"
+          # Prepend the vcpkg lib directory so link.exe can find check.lib
+          LIB: "${{ env.USERPROFILE }}\vcpkg\installed\x64-windows\lib;${{ env.LIB }}"
         run: cmake --build tests/host/build --config Debug -j 2
 
       # -------------------------------------------------
