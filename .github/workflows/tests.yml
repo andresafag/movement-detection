@@ -73,6 +73,7 @@ jobs:
           # ---- Integrate installed packages so that find_package works without an explicit toolchain file ----
           Write-Host "Integrating vcpkg packages..."
           & "$vcpkgRoot\vcpkg.exe" integrate install
+          $env:pkgConfigExe = "C:\Users\runneradmin\vcpkg\installed\x64-windows\lib\pkgconfig"
 
       # -------------------------------------------------
       # 3️⃣ (Ubuntu only) clang-format & cppcheck
@@ -133,40 +134,6 @@ jobs:
           )
           
           cmake @cmakeArgs
-      
-      - name: Analyze Pipeline Failure with AI
-        if: failure() && github.event_name == 'push'
-        shell: bash
-        env:
-          OPENAI_API_KEY: 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
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "Fetching recent workflow logs..."
-          gh run view ${{ github.run_id }} --log-failed > failed_logs.txt
-          tail -n 150 failed_logs.txt > optimized_logs.txt
-          
-          ESCAPED_LOGS=$(jq -Rs '.' optimized_logs.txt)
-          
-          jq -n --arg logs "$ESCAPED_LOGS" '{
-            model: "gpt-4o-mini",
-            messages: [
-              {role: "system", content: "You are a DevOps expert. Identify exactly why this GitHub Actions build failed and provide the precise code or configuration fix. Keep it concise."},
-              {role: "user", content: ("Logs:\n" + $logs)}
-            ],
-            temperature: 0.2
-          }' > payload.json
-          
-          RESPONSE=$(curl -s -X POST "https://openai.com" \
-            -H "Authorization: Bearer $OPENAI_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d @payload.json)
-          
-          AI_ANALYSIS=$(echo "$RESPONSE" | jq -r '.choices.message.content // "AI diagnostics failed."')
-          
-          # Print directly to the Actions execution log summary
-          echo "::error title=AI Pipeline Diagnostic::$AI_ANALYSIS"
-          
-          if [ "${{ github.event_name }}" = "push" ]; then COMMENT_BODY="## 🤖 OpenAI Pipeline Correction Analysis"$'\n'"$AI_ANALYSIS"; fi
 
       # -------------------------------------------------
       # 5️⃣ Build tests
