@@ -1,68 +1,56 @@
 cmake_minimum_required(VERSION 3.16)
 project(sensor_access_host_tests C)
 
-# ---------------------------------------------------------------------------
-# Host-based unit tests for the ESP32 firmware components.
-#
-# This build compiles the components with their *real* GPIO/FreeRTOS code
-# linked against host stubs (tests/host/), then runs them on Linux/macOS/Windows
-# under a standard C test runner.  No ESP32 toolchain required.
-#
-# Run with:
-#   cmake -S tests/host -B tests/host/build
-#   cmake --build tests/host/build
-#   ctest --test-dir tests/host/build --output-on-failure
-# ---------------------------------------------------------------------------
-
-set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_C_EXTENSIONS ON)
 
-# Strict warnings — same flags the firmware cares about.
-add_compile_options(
-    -Wall
-    -Wextra
-    -Werror=implicit-function-declaration
-    -Werror=return-type
-    -Wno-unused-parameter
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(CHECK REQUIRED check)
+
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/stubs
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../components/movement-driver/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../components/mqtt-aws/include
 )
 
-if(MSVC)
-    add_compile_options(/W4)
-endif()
-
-# ---------------------------------------------------------------------------
-# Host stubs — fake implementations of ESP-IDF / FreeRTOS functions that
-# the firmware calls.  These live in tests/host/ and are linked in below.
-# ---------------------------------------------------------------------------
 add_library(host_stubs STATIC
-    test.c
+    stubs/fake_esp_stubs.c
 )
-target_include_directories(host_stubs PUBLIC include)
 
-# ---------------------------------------------------------------------------
-# Components under test — the REAL C source compiled in.
-# We must compile them with the host stub headers on the include path.
-# ---------------------------------------------------------------------------
-add_library(movement_driver STATIC
+target_include_directories(host_stubs PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/stubs
+)
+
+add_executable(test_movement_driver
+    test/test_movement_driver.c
     ../../components/movement-driver/movement-driver.c
 )
-target_include_directories(movement_driver PUBLIC
-    ../../components/movement-driver/include
-)
-target_link_libraries(movement_driver PUBLIC host_stubs)
 
-add_library(mqtt_aws STATIC
+target_link_libraries(test_movement_driver PRIVATE host_stubs ${CHECK_LIBRARIES})
+target_include_directories(test_movement_driver PRIVATE ${CHECK_INCLUDE_DIRS})
+target_compile_options(test_movement_driver PRIVATE ${CHECK_CFLAGS_OTHER})
+add_test(NAME test_movement_driver COMMAND test_movement_driver)
+
+add_executable(test_mqtt_aws
+    test/test_mqtt_aws.c
     ../../components/mqtt-aws/mqtt-aws.c
 )
-target_include_directories(mqtt_aws PUBLIC
-    ../../components/mqtt-aws/include
+
+target_link_libraries(test_mqtt_aws PRIVATE host_stubs ${CHECK_LIBRARIES})
+target_include_directories(test_mqtt_aws PRIVATE ${CHECK_INCLUDE_DIRS})
+target_compile_options(test_mqtt_aws PRIVATE ${CHECK_CFLAGS_OTHER})
+add_test(NAME test_mqtt_aws COMMAND test_mqtt_aws)
+
+add_executable(test_sensor_pipeline
+    test/test_sensor_pipeline.c
+    ../../components/movement-driver/movement-driver.c
+    ../../components/mqtt-aws/mqtt-aws.c
 )
-target_link_libraries(mqtt_aws PUBLIC host_stubs)
 
-# ---------------------------------------------------------------------------
-# Tests
-# ---------------------------------------------------------------------------
+target_link_libraries(test_sensor_pipeline PRIVATE host_stubs ${CHECK_LIBRARIES})
+target_include_directories(test_sensor_pipeline PRIVATE ${CHECK_INCLUDE_DIRS})
+target_compile_options(test_sensor_pipeline PRIVATE ${CHECK_CFLAGS_OTHER})
+add_test(NAME test_sensor_pipeline COMMAND test_sensor_pipeline)
+
 enable_testing()
-
-add_subdirectory(test)
