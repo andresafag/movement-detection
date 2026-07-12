@@ -52,10 +52,19 @@ jobs:
                    components main
 
       - name: 🛠️ Configure CMake
+        if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
           cmake -S tests/host -B tests/host/build \
             -DCMAKE_BUILD_TYPE=Debug
+
+      - name: 🛠️ Configure CMake pwsh
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          cmake -S tests/host -B tests/host/build `
+            -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" `
+            --building-for="Visual Studio 18 2026"
 
       - name: 🏗️ Build tests
         run: cmake --build tests/host/build --config Debug -j 2
