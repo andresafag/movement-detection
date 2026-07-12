@@ -124,6 +124,13 @@ jobs:
           
           Write-Host "Using pkgconf at: $pkgConfigExe"
           
+          # 1️⃣ Definir la ruta donde vcpkg guarda los archivos .pc para que pkgconf los encuentre
+          $env:PKG_CONFIG_PATH = Join-Path $vcpkgRoot 'installed' 'x64-windows' 'lib' 'pkgconfig'
+          Write-Host "PKG_CONFIG_PATH establecido en: $env:PKG_CONFIG_PATH"
+          
+          # 2️⃣ Ruta al archivo toolchain de vcpkg
+          $toolchain = Join-Path $vcpkgRoot 'scripts' 'buildsystems' 'vcpkg.cmake'
+          
           $cmakeArgs = @(
               "-S", "tests/host"
               "-B", "tests/host/build"
@@ -131,6 +138,7 @@ jobs:
               "-DCMAKE_BUILD_TYPE=Debug"
               "-DCMAKE_C_FLAGS=/wd4005"
               "-DPKG_CONFIG_EXECUTABLE=$pkgConfigExe"
+              "-DCMAKE_TOOLCHAIN_FILE=$toolchain"  # Integra vcpkg de forma nativa en CMake
           )
           
           cmake @cmakeArgs
