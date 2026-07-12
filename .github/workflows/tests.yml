@@ -38,6 +38,9 @@ jobs:
             pkg-config \
             cmake
 
+      # -------------------------------------------------
+      # 2️⃣ Install Windows dependencies (vcpkg + Check)
+      # -------------------------------------------------
       - name: 🛠️ Install Windows deps (vcpkg + Check)
         if: matrix.os == 'windows-latest'
         shell: pwsh
@@ -65,14 +68,20 @@ jobs:
           }
           Write-Host "✅ Tool‑chain file found: $toolchain"
 
-          # ---- Configure CMake, passing the tool‑chain file safely ----
-          Write-Host "Configuring CMake..."
-          cmake -S tests/host -B tests/host/build `
-                -G "Visual Studio 18 2026" `
-                -DCMAKE_BUILD_TYPE=Debug `
-                -DCMAKE_TOOLCHAIN_FILE=$($toolchain) `   # <-- forced expansion, no trailing space
-                -DVCPKG_TARGET_TRIPLET=x64-windows `
-                -DCMAKE_C_FLAGS="/wd4005"
+          # ---- Build CMake argument array (no back‑ticks, no quoting problems) ----
+          $cmakeArgs = @(
+            "-S", "tests/host"
+            "-B", "tests/host/build"
+            "-G", "Visual Studio 18 2026"
+            "-DCMAKE_BUILD_TYPE=Debug"
+            "-DCMAKE_TOOLCHAIN_FILE=$toolchain"   # variable expands here
+            "-DVCPKG_TARGET_TRIPLET=x64-windows"
+            # Suppress the harmless -pthread warning on MSVC (optional)
+            "-DCMAKE_C_FLAGS=/wd4005"
+          )
+
+          Write-Host "Configuring CMake with args: $cmakeArgs"
+          cmake @cmakeArgs
 
       # -------------------------------------------------
       # 2️⃣ (Ubuntu only) Run clang‑format & cppcheck
