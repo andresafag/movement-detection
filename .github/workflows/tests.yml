@@ -141,50 +141,35 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Fetching recent workflow logs..."
-          
-          # 1. Download the current run logs using the GitHub CLI
           gh run view ${{ github.run_id }} --log-failed > failed_logs.txt
+          tail -n 150 failed_logs.txt > optimized_logs.txt
           
-          # 2. Truncate logs if they are too long (keep the last 200 lines to avoid token limits)
-          tail -n 200 failed_logs.txt > optimized_logs.txt
-          
-          # 3. Create the prompt for the AI
-          cat << 'EOF' > prompt.json
-          {
-            "contents": [{
-              "parts": [{
-                "text": "You are a DevOps expert. Analyze these GitHub Actions failure logs. Identify exactly why the build failed and provide the precise code or configuration fix needed to resolve it. Keep your answer concise and format code snippets clearly.\n\nLOGS:\n"
-              }]
-            }]
-          }
-          EOF
-          
-          # Escape the logs to safely embed them into the JSON payload
           ESCAPED_LOGS=$(jq -Rs '.' optimized_logs.txt)
-          jq --argjson logs "$ESCAPED_LOGS" '.contents[0].parts[0].text += $logs' prompt.json > payload.json
           
-          echo "Querying Gemini API for a correction..."
+          jq -n --arg logs "$ESCAPED_LOGS" '{
+            model: "gpt-4o-mini",
+            messages: [
+              {role: "system", content: "You are a DevOps expert. Identify exactly why this GitHub Actions build failed and provide the precise code or configuration fix. Keep it concise."},
+              {role: "user", content: ("Logs:\n" + $logs)}
+            ],
+            temperature: 0.2
+          }' > payload.json
           
-          # 4. Call the free Gemini API
-          RESPONSE=$(curl -s -X POST \
-            "https://googleapis.com{GEMINI_API_KEY}" \
+          RESPONSE=$(curl -s -X POST "https://openai.com" \
+            -H "Authorization: Bearer $OPENAI_API_KEY" \
             -H "Content-Type: application/json" \
             -d @payload.json)
           
-          # Extract the text markdown response
-          AI_ANALYSIS=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // "AI could not generate a response. Please check API limits."')
+          AI_ANALYSIS=$(echo "$RESPONSE" | jq -r '.choices.message.content // "AI diagnostics failed."')
           
-          # 5. Format the markdown comment for the Pull Request
-          COMMENT_BODY=$(cat << EOF
-          ## 🤖 AI Pipeline Correction Analysis
-          The pipeline failed. Here is the automated diagnostic:
+          # Print directly to the Actions execution log summary
+          echo "::error title=AI Pipeline Diagnostic::$AI_ANALYSIS"
           
-          $AI_ANALYSIS
-          EOF
-          )
-          
-          # 6. Post the comment directly to the Pull Request using GitHub CLI
-          gh pr comment ${{ github.event.pull_request.number }} --body "$COMMENT_BODY"
+          # Try to post to PR if context exists
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            COMMENT_BODY="## 🤖 OpenAI Pipeline Correction Analysis"$'\n'"$AI_ANALYSIS"
+            gh pr comment ${{ github.event.pull_request.number }} --body "$COMMENT_BODY" || echo "PR comment failed, check workflow permissions."
+          fi
 
       # -------------------------------------------------
       # 5️⃣ Build tests
