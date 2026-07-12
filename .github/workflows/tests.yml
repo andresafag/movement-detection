@@ -124,11 +124,7 @@ jobs:
           
           Write-Host "Using pkgconf at: $pkgConfigExe"
           
-          # 1️⃣ Definir la ruta donde vcpkg guarda los archivos .pc para que pkgconf los encuentre
           $env:PKG_CONFIG_PATH = Join-Path $vcpkgRoot 'installed' 'x64-windows' 'lib' 'pkgconfig'
-          Write-Host "PKG_CONFIG_PATH establecido en: $env:PKG_CONFIG_PATH"
-          
-          # 2️⃣ Ruta al archivo toolchain de vcpkg
           $toolchain = Join-Path $vcpkgRoot 'scripts' 'buildsystems' 'vcpkg.cmake'
           
           $cmakeArgs = @(
@@ -138,7 +134,7 @@ jobs:
               "-DCMAKE_BUILD_TYPE=Debug"
               "-DCMAKE_C_FLAGS=/wd4005"
               "-DPKG_CONFIG_EXECUTABLE=$pkgConfigExe"
-              "-DCMAKE_TOOLCHAIN_FILE=$toolchain"  # Integra vcpkg de forma nativa en CMake
+              "-DCMAKE_TOOLCHAIN_FILE=$toolchain"
           )
           
           cmake @cmakeArgs
@@ -152,18 +148,8 @@ jobs:
 
       - name: 🏗️ Build tests (Windows)
         if: matrix.os == 'windows-latest'
+        shell: pwsh
         run: |
-          # 1️⃣ Forzamos a CMake a leer el nuevo CMakeLists.txt antes de compilar
-          $vcpkgRoot = "$env:USERPROFILE\vcpkg"
-          $pkgConfigExe = Join-Path $vcpkgRoot 'installed' 'x64-windows' 'tools' 'pkgconf' 'pkgconf.exe'
-          $env:PKG_CONFIG_PATH = Join-Path $vcpkgRoot 'installed' 'x64-windows' 'lib' 'pkgconfig'
-          $toolchain = Join-Path $vcpkgRoot 'scripts' 'buildsystems' 'vcpkg.cmake'
-          
-          Write-Host "Reconfigurando CMake con los nuevos cambios..."
-          cmake -S tests/host -B tests/host/build -G "Visual Studio 18 2026" -DCMAKE_BUILD_TYPE=Debug -DPKG_CONFIG_EXECUTABLE=$pkgConfigExe -DCMAKE_TOOLCHAIN_FILE=$toolchain
-          
-          # 2️⃣ Ejecutamos la compilación limpia
-          Write-Host "Compilando..."
           cmake --build tests/host/build --config Debug -j 2
 
       # -------------------------------------------------
