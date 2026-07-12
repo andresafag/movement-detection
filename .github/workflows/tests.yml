@@ -165,10 +165,7 @@ jobs:
           # Print directly to the Actions execution log summary
           echo "::error title=AI Pipeline Diagnostic::$AI_ANALYSIS"
           
-          # Try to post to PR if context exists
-          if [ "${{ github.event_name }}" = "push" ]; then
-            COMMENT_BODY="## 🤖 OpenAI Pipeline Correction Analysis"$'\n'"$AI_ANALYSIS"
-          fi
+          if [ "${{ github.event_name }}" = "push" ]; then COMMENT_BODY="## 🤖 OpenAI Pipeline Correction Analysis"$'\n'"$AI_ANALYSIS"; fi
 
       # -------------------------------------------------
       # 5️⃣ Build tests
