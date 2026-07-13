@@ -5,20 +5,19 @@ set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # ==========================================
-# Configuración híbrida de dependencias (Windows / Linux)
+# Configuración Unificada de dependencias (Windows y Linux)
 # ==========================================
+find_package(PkgConfig REQUIRED)
+
+# Usamos pkg_check_modules de forma normal para ambos sistemas operativos
+pkg_check_modules(CHECK REQUIRED check)
+
+# Definimos la variable de librerías según el sistema
 if(WIN32)
-    # En Windows usamos vcpkg para resolver check.lib
-    find_package(check REQUIRED)
-    # check::check es el target oficial de vcpkg que maneja dependencias automáticamente
-    set(CHECK_LIBS check::check)
-    set(CHECK_INCLUDE_DIRS "")
-    set(CHECK_LIBRARY_DIRS "")
+    # En Windows, vcpkg con pkg-config define CHECK_LIBRARIES con las rutas completas
+    set(CHECK_LIBS ${CHECK_LIBRARIES})
 else()
-    # En Linux seguimos usando pkg-config para inyectar subunit y m
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(CHECK REQUIRED check)
-    # Mantenemos tu solución con CHECK_STATIC_LIBRARIES para Linux
+    # En Linux mantenemos tu solución estática original (que incluye subunit y m)
     set(CHECK_LIBS ${CHECK_STATIC_LIBRARIES})
 endif()
 
