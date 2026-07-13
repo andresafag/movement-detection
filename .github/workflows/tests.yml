@@ -60,40 +60,47 @@ jobs:
       - name: 📥 Check out
         uses: actions/checkout@v4
 
-      - name: Build ESP-IDF Project
+      - name: 🛠️ Install ESP-IDF & QEMU Tools
+        uses: espressif/install-esp-idf-action@v1
+        with:
+          version: 'v6.0.2' 
+          with_qemu: true
+
+      - name: 🏗️ Build ESP-IDF Project
         run: |
-          . $IDF_PATH/export.sh
           idf.py set-target esp32
           idf.py build
-          
-      - name: Run Application in QEMU Emulator
+
+      - name: 🚀 Run Application in QEMU Emulator
         run: |
-          . $IDF_PATH/export.sh
-          
           echo "Starting ESP32 QEMU Simulation..."
           
-          # Run QEMU in the background, forwarding console to a log file
-          # --non-interactive stops it from waiting for manual inputs
+          # 'install-esp-idf-action' ya exporta el entorno, no necesitas '. export.sh'
+          # Ejecutamos idf.py qemu en segundo plano
           idf.py qemu --non-interactive monitor > qemu_output.log 2>&1 &
           QEMU_PID=$!
           
-          # Give the simulation 15 seconds to boot and spit out logs
+          # Dar tiempo a la simulación
           sleep 15
           
-          # Cleanly terminate the background QEMU instance
+          # Terminar QEMU limpiamente
           kill $QEMU_PID || true
           
-          # Print out the console logs so you can inspect them directly in GitHub Actions
           echo "=== QEMU EXECUTION LOGS ==="
           cat qemu_output.log
           
-          # Optional: Make your CI fail if an error or panic occurred
+          # Validaciones de fallos comunes en ESP32
           if grep -q "Guru Meditation Error" qemu_output.log; then
-            echo "Test Failed: Core panic detected!"
+            echo "❌ Test Failed: Core panic detected!"
+            exit 1
+          fi
+
+          if grep -q "Backtrace:" qemu_output.log; then
+            echo "❌ Test Failed: App crashed with a backtrace!"
             exit 1
           fi
           
-          echo "Test Passed: App successfully executed in QEMU!"
+          echo "✅ Test Passed: App successfully executed in QEMU!"
 
       - name: 📤 Upload component test logs
         if: always()
