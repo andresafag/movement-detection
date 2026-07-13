@@ -11,11 +11,4 @@ jobs:
       contents: read
     uses: ./.github/workflows/tests.yml
 
-  trigger-terraform:
-    needs: trigger-tests
-    permissions:
-      contents: read
-      pull-requests: write
-      id-token: write
-      actions: read
-    uses: ./.github/workflows/terraform.yml
+
