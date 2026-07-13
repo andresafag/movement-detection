@@ -18,9 +18,15 @@ if(WIN32)
         set(CHECK_LIBS check)
     endif()
     
-    # 🚀 SOLUCIÓN DEFINITIVA: Forzamos la ruta absoluta del include usando el directorio normalizado de vcpkg
+    # Forzamos la ruta absoluta del include usando el directorio normalizado de vcpkg
     file(TO_CMAKE_PATH "$ENV{VCPKG_ROOT_DIR}" VCPKG_ROOT_NORMALIZED)
     set(CHECK_INCLUDE_DIRS "${VCPKG_ROOT_NORMALIZED}/installed/x64-windows/include")
+    
+    # 🚀 SOLUCIÓN DEFINITIVA: Le decimos a Visual Studio EXACTAMENTE en qué carpetas buscar el archivo check.lib
+    link_directories(
+        "${VCPKG_ROOT_NORMALIZED}/installed/x64-windows/lib"
+        "${VCPKG_ROOT_NORMALIZED}/installed/x64-windows/debug/lib"
+    )
 else()
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(CHECK REQUIRED check)
