@@ -69,7 +69,7 @@ jobs:
           key: ${{ runner.os }}-step-${{ hashFiles('config/o/dependencias/del/paso.txt') }}
 
       - name: 🛠️ Install ESP-IDF & QEMU Tools
-        if: steps.cache.outputs.cache-hit != 'true
+        if: steps.cache.outputs.cache-hit != 'true'
         uses: espressif/install-esp-idf-action@v1
         with:
           version: 'v6.0.2' 
