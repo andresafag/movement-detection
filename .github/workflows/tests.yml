@@ -128,7 +128,6 @@ jobs:
           $cmakeArgs = @(
               "-S", "tests/host"
               "-B", "tests/host/build"
-              "-G", "Visual Studio 17 2022"  # Nota: Cambiado de "18 2026" a "17 2022" por compatibilidad con el entorno actual de GitHub
               "-DCMAKE_BUILD_TYPE=Debug"
               "-DCMAKE_C_FLAGS=/wd4005"
               "-DPKG_CONFIG_EXECUTABLE=$pkgConfigExe"
