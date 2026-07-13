@@ -48,7 +48,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          $vcpkgRoot = "$env:USERPROFILE\vpkg"
+          $vcpkgRoot = "$env:USERPROFILE\vcpkg"
           if (-not (Test-Path "$vcpkgRoot\bootstrap-vcpkg.bat")) {
             Write-Host "Cloning vcpkg..."
             git clone https://github.com $vcpkgRoot
