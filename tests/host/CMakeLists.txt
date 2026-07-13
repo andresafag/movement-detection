@@ -8,15 +8,17 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 # Configuración Unificada de dependencias
 # ==========================================
 if(WIN32)
-    # 1. En Windows usamos find_library para obtener la ruta absoluta exacta de check.lib
-    # Buscamos dentro de la carpeta donde vcpkg instaló el paquete
+    # Convertimos las barras diagonales a formato compatible con CMake
+    file(TO_CMAKE_PATH "$ENV{VCPKG_ROOT_DIR}" VCPKG_ROOT_NORMALIZED)
+
+    # 1. Buscamos check de manera flexible intentando varios nombres posibles
     find_library(CHECK_LIB_PATH 
-        NAMES check
-        PATHS "$ENV{VCPKG_ROOT_DIR}/installed/x64-windows/lib"
+        NAMES check checkd libcheck libcheckd
+        PATHS "${VCPKG_ROOT_NORMALIZED}/installed/x64-windows/lib"
         REQUIRED
     )
     set(CHECK_LIBS "${CHECK_LIB_PATH}")
-    set(CHECK_INCLUDE_DIRS "$ENV{VCPKG_ROOT_DIR}/installed/x64-windows/include")
+    set(CHECK_INCLUDE_DIRS "${VCPKG_ROOT_NORMALIZED}/installed/x64-windows/include")
 else()
     # 2. En Linux seguimos usando pkg-config sin alteraciones
     find_package(PkgConfig REQUIRED)
