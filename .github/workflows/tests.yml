@@ -48,21 +48,32 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
+          # ---- Bootstrap vcpkg (once per runner) ----
           $vcpkgRoot = "$env:USERPROFILE\vcpkg"
-          
-          if (-not (Test-Path "$vcpkgRoot\bootstrap-vcpkg.bat")) {
+          if (-not (Test-Path "$vcpkgRoot\bootstrap.vcpkg.exe")) {
             Write-Host "Cloning vcpkg..."
-            # 🚀 SOLUCIÓN: Se restauró la URL completa del repositorio oficial
-            git clone https://github.com $vcpkgRoot
+            git clone https://github.com/microsoft/vcpkg.git $vcpkgRoot
             Write-Host "Bootstrapping vcpkg..."
             & "$vcpkgRoot\bootstrap-vcpkg.bat"
           } else {
             Write-Host "vcpkg already bootstrapped at $vcpkgRoot"
           }
 
+          # ---- Install Check and pkgconf (static libs) for x64-windows ----
           Write-Host "Installing Check and pkgconf via vcpkg..."
           & "$vcpkgRoot\vcpkg.exe" install check:x64-windows pkgconf:x64-windows
 
+          # ---- Verify that the toolchain file exists (just a safety check) ----
+          $toolchain = Join-Path $vcpkgRoot 'scripts/buildsystems/vcpkg.cmake'
+          if (-not (Test-Path $toolchain)) {
+            Write-Error "❌ vcpkg toolchain file not found at $toolchain"
+            exit 1
+          }
+
+          # ---- Integrate installed packages so that find_package works without an explicit toolchain file ----
+          Write-Host "Integrating vcpkg packages..."
+          & "$vcpkgRoot\vcpkg.exe" install check:x64-windows pkgconf:x64-windows
+          $env:pkgConfigExe = "C:\Users\runneradmin\vcpkg\installed\x64-windows\lib\pkgconfig"
           echo "VCPKG_ROOT_DIR=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       # -------------------------------------------------
