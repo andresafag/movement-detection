@@ -44,9 +44,10 @@ add_executable(test_movement_driver
     ../../components/movement-driver/movement-driver.c
 )
 
+# 🚀 SOLUCIÓN: Agregamos target_link_directories para que Visual Studio sepa DÓNDE buscar la librería
+target_link_directories(test_movement_driver PRIVATE ${CHECK_LIBRARY_DIRS})
 target_link_libraries(test_movement_driver PRIVATE host_stubs ${CHECK_LIBS})
 target_include_directories(test_movement_driver PRIVATE ${CHECK_INCLUDE_DIRS})
-target_link_directories(test_movement_driver PRIVATE ${CHECK_LIBRARY_DIRS})
 
 if(NOT MSVC)
     target_compile_options(test_movement_driver PRIVATE ${CHECK_CFLAGS_OTHER})
@@ -62,9 +63,10 @@ add_executable(test_mqtt_aws
     ../../components/mqtt-aws/mqtt-aws.c
 )
 
+# 🚀 SOLUCIÓN: Agregamos target_link_directories para que Visual Studio sepa DÓNDE buscar la librería
+target_link_directories(test_mqtt_aws PRIVATE ${CHECK_LIBRARY_DIRS})
 target_link_libraries(test_mqtt_aws PRIVATE host_stubs ${CHECK_LIBS})
 target_include_directories(test_mqtt_aws PRIVATE ${CHECK_INCLUDE_DIRS})
-target_link_directories(test_mqtt_aws PRIVATE ${CHECK_LIBRARY_DIRS})
 
 if(NOT MSVC)
     target_compile_options(test_mqtt_aws PRIVATE ${CHECK_CFLAGS_OTHER})
@@ -81,9 +83,10 @@ add_executable(test_sensor_pipeline
     ../../components/mqtt-aws/mqtt-aws.c
 )
 
+# 🚀 SOLUCIÓN: Agregamos target_link_directories para que Visual Studio sepa DÓNDE buscar la librería
+target_link_directories(test_sensor_pipeline PRIVATE ${CHECK_LIBRARY_DIRS})
 target_link_libraries(test_sensor_pipeline PRIVATE host_stubs ${CHECK_LIBS})
 target_include_directories(test_sensor_pipeline PRIVATE ${CHECK_INCLUDE_DIRS})
-target_link_directories(test_sensor_pipeline PRIVATE ${CHECK_LIBRARY_DIRS})
 
 if(NOT MSVC)
     target_compile_options(test_sensor_pipeline PRIVATE ${CHECK_CFLAGS_OTHER})
