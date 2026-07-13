@@ -10,17 +10,16 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 if(WIN32)
     find_package(check CONFIG REQUIRED)
     
-    # 🚀 SOLUCIÓN: Verificamos cuál target exportó vcpkg para usar el correcto
     if(TARGET check::check)
         set(CHECK_LIBS check::check)
     elseif(TARGET Check::check)
         set(CHECK_LIBS Check::check)
     else()
-        # Si vcpkg exportó el nombre plano sin namespace
         set(CHECK_LIBS check)
     endif()
     
-    set(CHECK_INCLUDE_DIRS "")
+    # 🚀 SOLUCIÓN: vcpkg define 'check_INCLUDE_DIRS' al usar find_package de forma nativa
+    set(CHECK_INCLUDE_DIRS ${check_INCLUDE_DIRS})
 else()
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(CHECK REQUIRED check)
