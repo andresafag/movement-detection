@@ -8,16 +8,11 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 # Configuración Unificada de dependencias
 # ==========================================
 if(WIN32)
-    file(TO_CMAKE_PATH "$ENV{VCPKG_ROOT_DIR}" VCPKG_ROOT_NORMALIZED)
-
-    # Buscamos la librería dinámica (vcpkg asocia el import library aquí)
-    find_library(CHECK_LIB_PATH 
-        NAMES check libcheck
-        PATHS "${VCPKG_ROOT_NORMALIZED}/installed/x64-windows/lib"
-        REQUIRED
-    )
-    set(CHECK_LIBS "${CHECK_LIB_PATH}")
-    set(CHECK_INCLUDE_DIRS "${VCPKG_ROOT_NORMALIZED}/installed/x64-windows/include")
+    # 🚀 SOLUCIÓN: Usamos el buscador de configuración oficial de vcpkg para DLLs
+    find_package(check CONFIG REQUIRED)
+    # vcpkg exporta el target oficial como 'check' o 'Check::check'
+    set(CHECK_LIBS Check::check)
+    set(CHECK_INCLUDE_DIRS "")
 else()
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(CHECK REQUIRED check)
