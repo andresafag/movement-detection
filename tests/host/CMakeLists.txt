@@ -8,19 +8,21 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 # Configuración Unificada de dependencias
 # ==========================================
 if(WIN32)
-    # Convertimos las barras diagonales a formato compatible con CMake
     file(TO_CMAKE_PATH "$ENV{VCPKG_ROOT_DIR}" VCPKG_ROOT_NORMALIZED)
 
-    # 1. Buscamos check de manera flexible intentando varios nombres posibles
+    # 🚀 SOLUCIÓN: Buscamos en todas las variantes de rutas donde vcpkg compila Check
     find_library(CHECK_LIB_PATH 
-        NAMES check checkd libcheck libcheckd
-        PATHS "${VCPKG_ROOT_NORMALIZED}/installed/x64-windows/lib"
+        NAMES check checkd libcheck libcheckd compat compatd libcompat libcompatd
+        PATHS 
+            "${VCPKG_ROOT_NORMALIZED}/installed/x64-windows/lib"
+            "${VCPKG_ROOT_NORMALIZED}/installed/x64-windows/lib/manual-link"
+            "${VCPKG_ROOT_NORMALIZED}/installed/x64-windows/debug/lib"
+            "${VCPKG_ROOT_NORMALIZED}/installed/x64-windows/debug/lib/manual-link"
         REQUIRED
     )
     set(CHECK_LIBS "${CHECK_LIB_PATH}")
     set(CHECK_INCLUDE_DIRS "${VCPKG_ROOT_NORMALIZED}/installed/x64-windows/include")
 else()
-    # 2. En Linux seguimos usando pkg-config sin alteraciones
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(CHECK REQUIRED check)
     set(CHECK_LIBS ${CHECK_STATIC_LIBRARIES})
