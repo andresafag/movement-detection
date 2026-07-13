@@ -8,10 +8,18 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 # Configuración Unificada de dependencias
 # ==========================================
 if(WIN32)
-    # 🚀 SOLUCIÓN: Usamos el buscador de configuración oficial de vcpkg para DLLs
     find_package(check CONFIG REQUIRED)
-    # vcpkg exporta el target oficial como 'check' o 'Check::check'
-    set(CHECK_LIBS Check::check)
+    
+    # 🚀 SOLUCIÓN: Verificamos cuál target exportó vcpkg para usar el correcto
+    if(TARGET check::check)
+        set(CHECK_LIBS check::check)
+    elseif(TARGET Check::check)
+        set(CHECK_LIBS Check::check)
+    else()
+        # Si vcpkg exportó el nombre plano sin namespace
+        set(CHECK_LIBS check)
+    endif()
+    
     set(CHECK_INCLUDE_DIRS "")
 else()
     find_package(PkgConfig REQUIRED)
