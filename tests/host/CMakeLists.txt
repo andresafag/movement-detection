@@ -4,17 +4,23 @@ project(sensor_access_host_tests C)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(CHECK REQUIRED check)
-
-# 🚀 SOLUCIÓN DEFINITIVA: Buscar en las rutas raíz que provee vcpkg (CMAKE_PREFIX_PATH)
-find_library(CHECK_ABSOLUTE_LIBRARY
-    NAMES check libcheck libcheckstatic
-    PATHS ${CMAKE_PREFIX_PATH}
-    PATH_SUFFIXES lib
-    REQUIRED
-)
-message(STATUS "Found Check absolute library path: ${CHECK_ABSOLUTE_LIBRARY}")
+# ==========================================
+# Configuración híbrida de dependencias (Windows / Linux)
+# ==========================================
+if(WIN32)
+    # En Windows usamos vcpkg para resolver check.lib
+    find_package(check REQUIRED)
+    # check::check es el target oficial de vcpkg que maneja dependencias automáticamente
+    set(CHECK_LIBS check::check)
+    set(CHECK_INCLUDE_DIRS "")
+    set(CHECK_LIBRARY_DIRS "")
+else()
+    # En Linux seguimos usando pkg-config para inyectar subunit y m
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(CHECK REQUIRED check)
+    # Mantenemos tu solución con CHECK_STATIC_LIBRARIES para Linux
+    set(CHECK_LIBS ${CHECK_STATIC_LIBRARIES})
+endif()
 
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -39,8 +45,9 @@ add_executable(test_movement_driver
     ../../components/movement-driver/movement-driver.c
 )
 
-target_link_libraries(test_movement_driver PRIVATE host_stubs ${CHECK_ABSOLUTE_LIBRARY})
+target_link_libraries(test_movement_driver PRIVATE host_stubs ${CHECK_LIBS})
 target_include_directories(test_movement_driver PRIVATE ${CHECK_INCLUDE_DIRS})
+target_link_directories(test_movement_driver PRIVATE ${CHECK_LIBRARY_DIRS})
 
 if(NOT MSVC)
     target_compile_options(test_movement_driver PRIVATE ${CHECK_CFLAGS_OTHER})
@@ -56,8 +63,9 @@ add_executable(test_mqtt_aws
     ../../components/mqtt-aws/mqtt-aws.c
 )
 
-target_link_libraries(test_mqtt_aws PRIVATE host_stubs ${CHECK_ABSOLUTE_LIBRARY})
+target_link_libraries(test_mqtt_aws PRIVATE host_stubs ${CHECK_LIBS})
 target_include_directories(test_mqtt_aws PRIVATE ${CHECK_INCLUDE_DIRS})
+target_link_directories(test_mqtt_aws PRIVATE ${CHECK_LIBRARY_DIRS})
 
 if(NOT MSVC)
     target_compile_options(test_mqtt_aws PRIVATE ${CHECK_CFLAGS_OTHER})
@@ -74,8 +82,9 @@ add_executable(test_sensor_pipeline
     ../../components/mqtt-aws/mqtt-aws.c
 )
 
-target_link_libraries(test_sensor_pipeline PRIVATE host_stubs ${CHECK_ABSOLUTE_LIBRARY})
+target_link_libraries(test_sensor_pipeline PRIVATE host_stubs ${CHECK_LIBS})
 target_include_directories(test_sensor_pipeline PRIVATE ${CHECK_INCLUDE_DIRS})
+target_link_directories(test_sensor_pipeline PRIVATE ${CHECK_LIBRARY_DIRS})
 
 if(NOT MSVC)
     target_compile_options(test_sensor_pipeline PRIVATE ${CHECK_CFLAGS_OTHER})

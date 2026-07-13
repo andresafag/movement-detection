@@ -18,7 +18,7 @@ static QueueHandle_t pir_evt_queue = NULL;
 
 // Interrupt Service Routine (ISR) - Runs instantly on physical voltage change
 static void IRAM_ATTR pir_isr_handler(void* arg) {
-	uint32_t gpio_num = (uint32_t)arg;
+	uint32_t gpio_num = (uint32_t)(uintptr_t)arg;
 	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 
 	// Send the triggered pin number to the processing task

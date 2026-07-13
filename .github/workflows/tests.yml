@@ -108,7 +108,7 @@ jobs:
         run: |
           cmake -S tests/host -B tests/host/build \
             -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_C_FLAGS="-Wno-unknown-warning-option"   # silence harmless -pthread warning on GCC/Clang
+            -DCMAKE_C_FLAGS="-Wno-unknown-warning-option" 
 
       - name: 🛠️ Configure CMake (Windows)
         if: matrix.os == 'windows-latest'
