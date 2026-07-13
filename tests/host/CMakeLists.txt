@@ -10,13 +10,10 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 if(WIN32)
     file(TO_CMAKE_PATH "$ENV{VCPKG_ROOT_DIR}" VCPKG_ROOT_NORMALIZED)
 
+    # Buscamos la librería dinámica (vcpkg asocia el import library aquí)
     find_library(CHECK_LIB_PATH 
-        NAMES check checkd libcheck libcheckd compat compatd libcompat libcompatd
-        PATHS 
-            "${VCPKG_ROOT_NORMALIZED}/installed/x64-windows/lib"
-            "${VCPKG_ROOT_NORMALIZED}/installed/x64-windows/lib/manual-link"
-            "${VCPKG_ROOT_NORMALIZED}/installed/x64-windows/debug/lib"
-            "${VCPKG_ROOT_NORMALIZED}/installed/x64-windows/debug/lib/manual-link"
+        NAMES check libcheck
+        PATHS "${VCPKG_ROOT_NORMALIZED}/installed/x64-windows/lib"
         REQUIRED
     )
     set(CHECK_LIBS "${CHECK_LIB_PATH}")
@@ -50,16 +47,7 @@ add_executable(test_movement_driver
     test/test_movement_driver.c
     ../../components/movement-driver/movement-driver.c
 )
-
 target_link_libraries(test_movement_driver PRIVATE host_stubs ${CHECK_LIBS})
-
-# 🚀 SOLUCIÓN DEFINITIVA: Rompe el prefijo __imp_ obligando a buscar símbolos estáticos
-if(MSVC)
-    target_compile_definitions(test_movement_driver PRIVATE CHECK_STATIC)
-else()
-    target_compile_options(test_movement_driver PRIVATE ${CHECK_CFLAGS_OTHER})
-endif()
-
 add_test(NAME test_movement_driver COMMAND test_movement_driver)
 
 # ==========================================
@@ -69,16 +57,7 @@ add_executable(test_mqtt_aws
     test/test_mqtt_aws.c
     ../../components/mqtt-aws/mqtt-aws.c
 )
-
 target_link_libraries(test_mqtt_aws PRIVATE host_stubs ${CHECK_LIBS})
-
-# 🚀 SOLUCIÓN DEFINITIVA: Rompe el prefijo __imp_ obligando a buscar símbolos estáticos
-if(MSVC)
-    target_compile_definitions(test_mqtt_aws PRIVATE CHECK_STATIC)
-else()
-    target_compile_options(test_mqtt_aws PRIVATE ${CHECK_CFLAGS_OTHER})
-endif()
-
 add_test(NAME test_mqtt_aws COMMAND test_mqtt_aws)
 
 # ==========================================
@@ -89,16 +68,7 @@ add_executable(test_sensor_pipeline
     ../../components/movement-driver/movement-driver.c
     ../../components/mqtt-aws/mqtt-aws.c
 )
-
 target_link_libraries(test_sensor_pipeline PRIVATE host_stubs ${CHECK_LIBS})
-
-# 🚀 SOLUCIÓN DEFINITIVA: Rompe el prefijo __imp_ obligando a buscar símbolos estáticos
-if(MSVC)
-    target_compile_definitions(test_sensor_pipeline PRIVATE CHECK_STATIC)
-else()
-    target_compile_options(test_sensor_pipeline PRIVATE ${CHECK_CFLAGS_OTHER})
-endif()
-
 add_test(NAME test_sensor_pipeline COMMAND test_sensor_pipeline)
 
 enable_testing()
