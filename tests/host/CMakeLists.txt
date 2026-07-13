@@ -21,9 +21,6 @@ if(WIN32)
     )
     set(CHECK_LIBS "${CHECK_LIB_PATH}")
     set(CHECK_INCLUDE_DIRS "${VCPKG_ROOT_NORMALIZED}/installed/x64-windows/include")
-
-    # 🚀 SOLUCIÓN DEFINITIVA: Quita el prefijo __imp_ y fuerza el enlace estático en MSVC
-    add_compile_definitions(CHECK_STATIC)
 else()
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(CHECK REQUIRED check)
@@ -56,7 +53,10 @@ add_executable(test_movement_driver
 
 target_link_libraries(test_movement_driver PRIVATE host_stubs ${CHECK_LIBS})
 
-if(NOT MSVC)
+# 🚀 SOLUCIÓN DEFINITIVA: Rompe el prefijo __imp_ obligando a buscar símbolos estáticos
+if(MSVC)
+    target_compile_definitions(test_movement_driver PRIVATE CHECK_STATIC)
+else()
     target_compile_options(test_movement_driver PRIVATE ${CHECK_CFLAGS_OTHER})
 endif()
 
@@ -72,7 +72,10 @@ add_executable(test_mqtt_aws
 
 target_link_libraries(test_mqtt_aws PRIVATE host_stubs ${CHECK_LIBS})
 
-if(NOT MSVC)
+# 🚀 SOLUCIÓN DEFINITIVA: Rompe el prefijo __imp_ obligando a buscar símbolos estáticos
+if(MSVC)
+    target_compile_definitions(test_mqtt_aws PRIVATE CHECK_STATIC)
+else()
     target_compile_options(test_mqtt_aws PRIVATE ${CHECK_CFLAGS_OTHER})
 endif()
 
@@ -89,7 +92,10 @@ add_executable(test_sensor_pipeline
 
 target_link_libraries(test_sensor_pipeline PRIVATE host_stubs ${CHECK_LIBS})
 
-if(NOT MSVC)
+# 🚀 SOLUCIÓN DEFINITIVA: Rompe el prefijo __imp_ obligando a buscar símbolos estáticos
+if(MSVC)
+    target_compile_definitions(test_sensor_pipeline PRIVATE CHECK_STATIC)
+else()
     target_compile_options(test_sensor_pipeline PRIVATE ${CHECK_CFLAGS_OTHER})
 endif()
 
