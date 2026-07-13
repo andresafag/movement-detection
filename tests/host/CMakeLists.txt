@@ -10,7 +10,6 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 if(WIN32)
     file(TO_CMAKE_PATH "$ENV{VCPKG_ROOT_DIR}" VCPKG_ROOT_NORMALIZED)
 
-    # 🚀 SOLUCIÓN: Buscamos en todas las variantes de rutas donde vcpkg compila Check
     find_library(CHECK_LIB_PATH 
         NAMES check checkd libcheck libcheckd compat compatd libcompat libcompatd
         PATHS 
@@ -22,6 +21,9 @@ if(WIN32)
     )
     set(CHECK_LIBS "${CHECK_LIB_PATH}")
     set(CHECK_INCLUDE_DIRS "${VCPKG_ROOT_NORMALIZED}/installed/x64-windows/include")
+
+    # 🚀 SOLUCIÓN DEFINITIVA: Quita el prefijo __imp_ y fuerza el enlace estático en MSVC
+    add_compile_definitions(CHECK_STATIC)
 else()
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(CHECK REQUIRED check)
