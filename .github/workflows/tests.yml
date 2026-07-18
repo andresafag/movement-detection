@@ -57,7 +57,7 @@ jobs:
     timeout-minutes: 30
     defaults:
       run:
-        shell: bash -l {0}
+        shell: 'bash -l {0}'
 			
     steps:
       - name: 📥 Check out
