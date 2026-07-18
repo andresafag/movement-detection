@@ -66,7 +66,7 @@ jobs:
       - name: 🔍 Verificar caché del paso pesado
         id: cache
         uses: actions/cache@v4
-        with:      # Cachamos la carpeta donde el action instala el IDF y las herramientas (.espressif)
+        with:
           path: |
             ~/.espressif
             ~/opt/esp
