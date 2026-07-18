@@ -7,6 +7,12 @@ on:
         required: true
       TF_LOCK_TABLE:
         required: true
+      AWS_REGION:
+        description: '🟧 AWS region'
+        required: true
+      TF_VAR_state_bucket_name:
+        description: '🟦 Terraform state bucket name'
+        required: true
     inputs:
       environment:
         description: '🌍 Environment'
@@ -17,14 +23,6 @@ on:
         description: '⚙️ Action'
         required: false
         default: 'apply'
-        type: string
-      AWS_REGION:
-        description: '🟧 AWS region'
-        required: true
-        type: string
-      TF_VAR_state_bucket_name:
-        description: '🟦 Terraform state bucket name'
-        required: true
         type: string
       confirm_destroy:
         description: '⚠️ Type "destroy" to confirm a destroy (ignored otherwise)'
