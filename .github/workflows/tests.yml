@@ -55,10 +55,7 @@ jobs:
     name: 🧪 ESP-IDF component tests (QEMU)
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    defaults:
-      run:
-        shell: 'bash -l {0}'
-			
+
     steps:
       - name: 📥 Check out
         uses: actions/checkout@v4
