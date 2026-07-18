@@ -71,7 +71,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           role-session-name: gha-terraform-${{ github.run_id }}
-          aws-region: ${{ inputs.AWS_REGION }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: ☁️ Verify identity
         run: aws sts get-caller-identity
@@ -87,12 +87,7 @@ jobs:
       - name: 🔍 terraform init
         working-directory: infrastructure
         run: |
-          terraform init -input=false \
-            -backend-config="bucket=${{ inputs.TF_VAR_state_bucket_name }}" \
-            -backend-config="key=sensor-access/terraform.tfstate" \
-            -backend-config="region=${{ inputs.AWS_REGION }}" \
-            -backend-config="dynamodb_table=${{ secrets.TF_LOCK_TABLE }}" \
-            -backend-config="encrypt=true"
+          terraform init
 
       - name: ✅ terraform validate
         working-directory: infrastructure
@@ -109,13 +104,13 @@ jobs:
           tflint --init
           tflint --recursive --minimum-failure-severity=warning
 
-      - name: 💾 Cache .terraform
-        uses: actions/cache@v4
-        with:
-          path: infrastructure/.terraform
-          key: terraform-${{ runner.os }}-${{ hashFiles('infrastructure/**/*.tf', 'infrastructure/.terraform.lock.hcl') }}
-          restore-keys: |
-            terraform-${{ runner.os }}-
+      # - name: 💾 Cache .terraform
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: infrastructure/.terraform
+      #     key: terraform-${{ runner.os }}-${{ hashFiles('infrastructure/**/*.tf', 'infrastructure/.terraform.lock.hcl') }}
+      #     restore-keys: |
+      #       terraform-${{ runner.os }}-
 
   # =========================================================================
   # plan — runs on every PR and every push, never applies. Uploads the
@@ -137,31 +132,26 @@ jobs:
           terraform_version: ${{ inputs.TF_VERSION }}
           terraform_wrapper: false
 
-      - name: 💾 Cache .terraform
-        uses: actions/cache@v4
-        with:
-          path: infrastructure/.terraform
-          key: terraform-${{ runner.os }}-${{ hashFiles('infrastructure/**/*.tf', 'infrastructure/.terraform.lock.hcl') }}
-          restore-keys: |
-            terraform-${{ runner.os }}-
+      # - name: 💾 Cache .terraform
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: infrastructure/.terraform
+      #     key: terraform-${{ runner.os }}-${{ hashFiles('infrastructure/**/*.tf', 'infrastructure/.terraform.lock.hcl') }}
+      #     restore-keys: |
+      #       terraform-${{ runner.os }}-
 
       - name: 🪪 Assume AWS role via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           role-session-name: gha-terraform-plan-${{ github.run_id }}
-          aws-region: ${{ inputs.AWS_REGION }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: 🔍 terraform init (no backend — uses restored cache for providers only)
         working-directory: infrastructure
         run: |
           # Init is needed to re-attach the backend; providers already cached.
-          terraform init -input=false \
-            -backend-config="bucket=${{ inputs.TF_VAR_state_bucket_name }}" \
-            -backend-config="key=sensor-access/terraform.tfstate" \
-            -backend-config="region=${{ inputs.AWS_REGION }}" \
-            -backend-config="dynamodb_table=${{ secrets.TF_LOCK_TABLE }}" \
-            -backend-config="encrypt=true"
+          terraform init
 
       - name: 📋 terraform plan
         id: plan
@@ -209,28 +199,23 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           role-session-name: gha-terraform-apply-${{ github.run_id }}
-          aws-region: ${{ inputs.AWS_REGION }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: 🔍 terraform init
         working-directory: infrastructure
         run: |
-          terraform init -input=false \
-            -backend-config="bucket=${{ inputs.TF_VAR_state_bucket_name }}" \
-            -backend-config="key=sensor-access/terraform.tfstate" \
-            -backend-config="region=${{ inputs.AWS_REGION }}" \
-            -backend-config="dynamodb_table=${{ secrets.TF_LOCK_TABLE }}" \
-            -backend-config="encrypt=true"
+          terraform init
 
-      - name: 📋 Re-validate plan matches current state
-        working-directory: infrastructure
-        env:
-          TF_VAR_environment: ${{ inputs.environment || 'dev' }}
-        run: |
-          # If the plan from the previous job is stale, regenerate it.
-          if ! terraform show -no-color tfplan >/dev/null 2>&1; then
-            echo "⚠️ Cached plan missing or stale — regenerating"
-            terraform plan -input=false -no-color -lock-timeout=300s -out=tfplan
-          fi
+      # - name: 📋 Re-validate plan matches current state
+      #   working-directory: infrastructure
+      #   env:
+      #     TF_VAR_environment: ${{ inputs.environment || 'dev' }}
+      #   run: |
+      #     # If the plan from the previous job is stale, regenerate it.
+      #     if ! terraform show -no-color tfplan >/dev/null 2>&1; then
+      #       echo "⚠️ Cached plan missing or stale — regenerating"
+      #       terraform plan -input=false -no-color -lock-timeout=300s -out=tfplan
+      #     fi
 
       - name: 🚀 terraform apply
         id: apply
@@ -239,7 +224,7 @@ jobs:
           TF_VAR_environment: ${{ inputs.environment || 'dev' }}
         run: |
           set -euo pipefail
-          terraform apply -input=false -no-color -auto-approve tfplan
+          terraform apply -auto-approve 
 
       - name: 📤 Publish outputs
         if: success()
@@ -295,7 +280,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           role-session-name: gha-terraform-destroy-${{ github.run_id }}
-          aws-region: ${{ inputs.AWS_REGION }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: 🔍 terraform init
         working-directory: infrastructure
@@ -303,7 +288,7 @@ jobs:
           terraform init -input=false \
             -backend-config="bucket=${{ inputs.TF_VAR_state_bucket_name }}" \
             -backend-config="key=sensor-access/terraform.tfstate" \
-            -backend-config="region=${{ inputs.AWS_REGION }}" \
+            -backend-config="region=${{ secrets.AWS_REGION }}" \
             -backend-config="dynamodb_table=${{ secrets.TF_LOCK_TABLE }}" \
             -backend-config="encrypt=true"
 
