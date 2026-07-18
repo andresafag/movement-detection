@@ -1,3 +1,3 @@
 idf_component_register(SRCS "wifi-driver.c"
                     INCLUDE_DIRS "include"
-                    REQUIRES esp_wifi esp_event esp_netif nvs_flash esp_event)
+                    REQUIRES esp_wifi esp_event nvs_flash esp_netif lwip)

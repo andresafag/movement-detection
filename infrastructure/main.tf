@@ -59,8 +59,10 @@ module "iot_core" {
   project_name = var.project_name
   environment  = var.environment
   aws_region   = var.aws_region
-  thing_name   = var.iot_thing_name
-  topic_prefix = var.iot_topic_prefix
+  thing_name   = var.thing_name
+  topic_prefix = var.topic_prefix
+  aws_s3_bucket_firmware_arn = module.s3.aws_s3_bucket_firmware_arn
+  
 }
 
 # ── 6. IoT Topic Rule (MQTT → SNS notification) ───────────────────────
@@ -69,7 +71,14 @@ module "iot_rules" {
 
   project_name      = var.project_name
   environment       = var.environment
-  topic_prefix      = var.iot_topic_prefix
+  topic_prefix      = var.topic_prefix
   sns_topic_arn     = module.sns.topic_arn
   iot_rule_role_arn = module.iam.iot_rule_engine_role_arn
 }
+
+module "s3" {
+  source = "./modules/s3"
+}
+
+
+

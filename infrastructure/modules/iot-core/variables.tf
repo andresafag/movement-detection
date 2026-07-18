@@ -22,3 +22,8 @@ variable "topic_prefix" {
   description = "MQTT topic prefix the device publishes to (e.g. sensors/motion)"
   type        = string
 }
+
+variable "aws_s3_bucket_firmware_arn" {
+  description = "ARN of the S3 bucket holding firmware binaries"
+  type        = string
+}

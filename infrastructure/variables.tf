@@ -49,13 +49,13 @@ variable "availability_zones" {
 
 # ── IoT Core ──────────────────────────────────────────────────────────────────
 
-variable "iot_thing_name" {
+variable "thing_name" {
   description = "Name of the IoT Thing representing the ESP32 device"
   type        = string
   default     = "esp32-sensor-01"
 }
 
-variable "iot_topic_prefix" {
+variable "topic_prefix" {
   description = "MQTT topic prefix used by the device (no trailing slash)"
   type        = string
   default     = "sensors/motion"

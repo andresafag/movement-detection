@@ -33,6 +33,16 @@ output "iot_thing_name" {
   value       = module.iot_core.thing_name
 }
 
+output "iot_job_template_arn" {
+  description = "ARN de la plantilla enviado a GitHub Actions"
+  value       = module.iot_core.iot_job_template_arn
+}
+
+output "iot_ota_role_arn" {
+  description = "ARN del rol de IAM enviado a GitHub Actions"
+  value       = module.iot_core.iot_ota_role_arn
+}
+
 output "iot_thing_arn" {
   description = "ARN of the registered IoT Thing"
   value       = module.iot_core.thing_arn
@@ -47,6 +57,25 @@ output "device_cert_secret_arn" {
   description = "ARN of the Secrets Manager secret holding device certificate + keys"
   value       = module.iot_core.secrets_manager_cert_arn
 }
+
+output "certificate_device_public_key" {
+  description = "ARN of the device certificate"
+  value       = module.iot_core.certs_public_key
+  sensitive = true
+}
+
+output "certificate_pem" {
+  description = "Device certificate PEM (also stored in Secrets Manager)"
+  value       = module.iot_core.certificate_pem
+  sensitive   = true
+}
+
+output "private_key" {
+  description = "Device private key (also stored in Secrets Manager)"
+  value       = module.iot_core.private_key
+  sensitive   = true
+}
+
 
 # ── Data pipeline ───────────────────────────────────────────────────────
 output "sns_topic_arn" {
@@ -83,4 +112,11 @@ output "state_bucket_arn" {
 output "state_lock_table_name" {
   description = "Name of the DynamoDB table used for Terraform state locking"
   value       = module.state_backend.dynamodb_lock_table_name
+}
+
+
+# ── Firmware bucket ───────────────────────────────────────────────────────
+
+output "aws_s3_bucket_firmware_arn" {
+    value = module.s3.aws_s3_bucket_firmware_arn
 }

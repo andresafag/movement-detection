@@ -6,8 +6,14 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    awscc = {
+      source  = "hashicorp/awscc"
+      version = "~> 1.0"
+    }
   }
 }
+
+
 
 provider "aws" {
   region = var.aws_region
@@ -19,4 +25,10 @@ provider "aws" {
       ManagedBy   = "terraform"
     }
   }
+}
+
+provider "awscc" {
+  region = var.aws_region
+
+  
 }

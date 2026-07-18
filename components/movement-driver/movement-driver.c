@@ -7,6 +7,7 @@
 #include "freertos/queue.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "shared_events.h"
 
 #define PIR_SENSOR_GPIO GPIO_NUM_27
 #define BLUE_LED_PIN  GPIO_NUM_25
@@ -39,6 +40,10 @@ static void pir_processing_task(void* arg) {
 
 			// 1. Turn the Blue LED ON
 			gpio_set_level(BLUE_LED_PIN, 1);
+			
+			// This alerts the system that motion happened. We don't need to pass extra data.
+			esp_event_post(PIR_EVENTS, PIR_EVENT_MOTION_DETECTED, NULL, 0, portMAX_DELAY);
+
 
 			// 2. Keep it shining for 2 seconds (serves as your movement window)
 			vTaskDelay(pdMS_TO_TICKS(2000));
