@@ -61,7 +61,7 @@ output "device_cert_secret_arn" {
 output "certificate_device_public_key" {
   description = "ARN of the device certificate"
   value       = module.iot_core.certs_public_key
-  sensitive = true
+  sensitive   = true
 }
 
 output "certificate_pem" {
@@ -118,5 +118,5 @@ output "state_lock_table_name" {
 # ── Firmware bucket ───────────────────────────────────────────────────────
 
 output "aws_s3_bucket_firmware_arn" {
-    value = module.s3.aws_s3_bucket_firmware_arn
+  value = module.s3.aws_s3_bucket_firmware_arn
 }

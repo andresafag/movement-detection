@@ -56,13 +56,13 @@ module "iam" {
 module "iot_core" {
   source = "./modules/iot-core"
 
-  project_name = var.project_name
-  environment  = var.environment
-  aws_region   = var.aws_region
-  thing_name   = var.thing_name
-  topic_prefix = var.topic_prefix
+  project_name               = var.project_name
+  environment                = var.environment
+  aws_region                 = var.aws_region
+  thing_name                 = var.thing_name
+  topic_prefix               = var.topic_prefix
   aws_s3_bucket_firmware_arn = module.s3.aws_s3_bucket_firmware_arn
-  
+
 }
 
 # ── 6. IoT Topic Rule (MQTT → SNS notification) ───────────────────────

@@ -4,7 +4,7 @@ resource "aws_s3_bucket" "firmware" {
   tags = {
     Name = var.firmware_bucket_name
   }
-  
+
 }
 
 resource "aws_s3_bucket_versioning" "esp32_version" {

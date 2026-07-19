@@ -1,6 +1,6 @@
 locals {
   name_prefix = "${var.project_name}-${var.environment}"
-  
+
   job_document = {
     operation    = "ota_update"
     version      = "$${aws:iot:parameter:firmware_version}"
@@ -51,7 +51,7 @@ resource "aws_iot_thing_group" "ESP32_group" {
 
   properties {
     description = "Group for production IoT edge devices"
-    
+
     attribute_payload {
       attributes = {
         device_type       = "ESP32"
@@ -71,7 +71,7 @@ resource "aws_iot_topic_rule" "telemetry_esp32" {
   name        = "ProcessDeviceTelemetry"
   description = "Routes temperature telemetry data to Timestream"
   enabled     = true
-  
+
   # The SQL statement that filters incoming device telemetry payload
   sql         = "SELECT * FROM ${var.topic_prefix}"
   sql_version = "2016-03-23"
@@ -94,7 +94,7 @@ EOF
 
   presigned_url_config = {
     role_arn       = aws_iam_role.iot-ota-role.arn
-    expires_in_sec = 3600 
+    expires_in_sec = 3600
   }
 
   job_executions_rollout_config = {
@@ -137,7 +137,7 @@ resource "aws_iot_thing_principal_attachment" "device" {
 # subscribe/publish only on its own topic prefix.
 
 data "aws_iam_policy_document" "iot_device_policy" {
-  
+
   # 1. Permitir conexión (Debe coincidir estrictamente con el Client ID / Thing Name)
   statement {
     sid     = "AllowConnect"
@@ -150,9 +150,9 @@ data "aws_iam_policy_document" "iot_device_policy" {
 
   # 2. Permisos de Suscripción para AWS IoT Jobs (Usa topicfilter)
   statement {
-    sid       = "AllowIoTJobsSubscribe"
-    effect    = "Allow"
-    actions   = ["iot:Subscribe"]
+    sid     = "AllowIoTJobsSubscribe"
+    effect  = "Allow"
+    actions = ["iot:Subscribe"]
     resources = [
       "arn:aws:iot:${var.aws_region}:${data.aws_caller_identity.current.account_id}:topicfilter/$aws/things/${var.thing_name}/jobs/*"
     ]
@@ -160,9 +160,9 @@ data "aws_iam_policy_document" "iot_device_policy" {
 
   # 3. Permisos de Publicación y Recepción para AWS IoT Jobs (Usa topic)
   statement {
-    sid       = "AllowIoTJobsPublishReceive"
-    effect    = "Allow"
-    actions   = ["iot:Publish", "iot:Receive"]
+    sid     = "AllowIoTJobsPublishReceive"
+    effect  = "Allow"
+    actions = ["iot:Publish", "iot:Receive"]
     resources = [
       "arn:aws:iot:${var.aws_region}:${data.aws_caller_identity.current.account_id}:topic/$aws/things/${var.thing_name}/jobs/*"
     ]
@@ -170,9 +170,9 @@ data "aws_iam_policy_document" "iot_device_policy" {
 
   # 4. Permisos de Suscripción para tu Telemetría propia (Usa topicfilter)
   statement {
-    sid       = "AllowTelemetrySubscribe"
-    effect    = "Allow"
-    actions   = ["iot:Subscribe"]
+    sid     = "AllowTelemetrySubscribe"
+    effect  = "Allow"
+    actions = ["iot:Subscribe"]
     resources = [
       "arn:aws:iot:${var.aws_region}:${data.aws_caller_identity.current.account_id}:topicfilter/${var.topic_prefix}/*"
     ]
@@ -180,9 +180,9 @@ data "aws_iam_policy_document" "iot_device_policy" {
 
   # 5. Permisos de Publicación y Recepción para tu Telemetría propia (Usa topic)
   statement {
-    sid       = "AllowTelemetryPublishReceive"
-    effect    = "Allow"
-    actions   = ["iot:Publish", "iot:Receive", "iot:RetainPublish"]
+    sid     = "AllowTelemetryPublishReceive"
+    effect  = "Allow"
+    actions = ["iot:Publish", "iot:Receive", "iot:RetainPublish"]
     resources = [
       "arn:aws:iot:${var.aws_region}:${data.aws_caller_identity.current.account_id}:topic/${var.topic_prefix}/*"
     ]
@@ -210,7 +210,7 @@ resource "aws_iam_role" "iot-ota-role" {
       }
     ]
   })
-  
+
 }
 
 resource "aws_iam_role_policy" "iot-ota-policy" {
@@ -228,7 +228,7 @@ resource "aws_iam_role_policy" "iot-ota-policy" {
         ]
         Resource = ["${var.aws_s3_bucket_firmware_arn}/*"]
       },
-       {
+      {
         Effect = "Allow"
         Action = [
           "s3:GetBucketLocation"
