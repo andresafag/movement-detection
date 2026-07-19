@@ -6,27 +6,6 @@
 # are marked sensitive in modules/iot-core/outputs.tf.
 ###############################################################################
 
-# ── VPC ─────────────────────────────────────────────────────────────────
-output "vpc_id" {
-  description = "ID of the VPC"
-  value       = module.vpc.vpc_id
-}
-
-output "vpc_cidr" {
-  description = "CIDR block of the VPC"
-  value       = module.vpc.vpc_cidr
-}
-
-output "public_subnet_ids" {
-  description = "IDs of the public subnets"
-  value       = module.vpc.public_subnet_ids
-}
-
-output "private_subnet_ids" {
-  description = "IDs of the private subnets"
-  value       = module.vpc.private_subnet_ids
-}
-
 # ── IoT Core ────────────────────────────────────────────────────────────
 output "iot_thing_name" {
   description = "Name of the registered IoT Thing"
@@ -96,22 +75,6 @@ output "iot_rule_name" {
 output "iot_rule_log_group" {
   description = "CloudWatch log group name for IoT rule error messages"
   value       = module.iot_rules.error_log_group_name
-}
-
-# ── State backend ───────────────────────────────────────────────────────
-output "state_bucket_name" {
-  description = "Name of the S3 bucket holding Terraform remote state"
-  value       = module.state_backend.bucket_name
-}
-
-output "state_bucket_arn" {
-  description = "ARN of the S3 bucket holding Terraform remote state"
-  value       = module.state_backend.bucket_arn
-}
-
-output "state_lock_table_name" {
-  description = "Name of the DynamoDB table used for Terraform state locking"
-  value       = module.state_backend.dynamodb_lock_table_name
 }
 
 
