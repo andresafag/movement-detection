@@ -247,7 +247,7 @@ jobs:
   # =========================================================================
   # destroy — manual-only workflow_dispatch with type-the-name guard.
   # Skipped entirely on push and PR.
-  # =========================================================================
+  # ========================================================================= 
   destroy:
     name: 🧨 destroy (${{ inputs.environment || 'dev' }})
     needs: init
