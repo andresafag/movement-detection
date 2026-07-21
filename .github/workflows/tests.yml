@@ -76,9 +76,7 @@ jobs:
           with_qemu: true
 
       - name: 🏗️ Build ESP-IDF Project
-        run: |
-          idf.py set-target esp32
-          idf.py build
+        run: idf.py -b 115200 set-target esp32 build
 
       - name: 🚀 Run Application in QEMU Emulator
         run: |

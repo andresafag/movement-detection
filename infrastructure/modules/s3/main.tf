@@ -15,7 +15,7 @@ resource "aws_s3_bucket_versioning" "esp32_version" {
   }
 }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "tfstate" {
+resource "aws_s3_bucket_server_side_encryption_configuration" "esp32_sse" {
   bucket = aws_s3_bucket.firmware.id
 
   rule {
@@ -25,7 +25,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "tfstate" {
   }
 }
 
-resource "aws_s3_bucket_public_access_block" "tfstate" {
+resource "aws_s3_bucket_public_access_block" "esp32_public_access" {
   bucket = aws_s3_bucket.firmware.id
 
   block_public_acls       = true
@@ -59,3 +59,12 @@ resource "aws_s3_bucket_policy" "esp32_bucket_https_only" {
     ]
   })
 }
+
+resource "aws_s3_bucket_notification" "esp32_bucket_notification" {
+  bucket = aws_s3_bucket.firmware.id
+
+  eventbridge = true
+  depends_on = [var.aws_lambda_permission_allow_s3_to_invoke_lambda]
+}
+
+

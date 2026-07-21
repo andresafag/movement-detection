@@ -3,3 +3,8 @@ variable "firmware_bucket_name" {
   description = "The name of the firmware"
   default     = "bucket-firmware-esp32"
 }
+
+variable "aws_lambda_permission_allow_s3_to_invoke_lambda" {
+  type        = string
+  description = "The name of the lambda permission to allow S3 to invoke the lambda function"
+}

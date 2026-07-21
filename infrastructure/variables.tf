@@ -45,11 +45,10 @@ variable "sns_subscriber_emails" {
   ]
 }
 
-# ── State backend ─────────────────────────────────────────────────────────────
+# ── S3 ───────────────────────────────────────────────────────────────────────
 
-variable "state_bucket_name" {
-  description = "Globally unique S3 bucket name for Terraform remote state"
+variable "firmware_bucket_name" {
+  description = "Name of the S3 bucket used to store firmware files for the ESP32 device"
   type        = string
-  # Override in terraform.tfvars — must be globally unique
-  default = "movement-sensor-tfstate"
+  default     = "esp32-movement-sensor-firmware-bucket"
 }

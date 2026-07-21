@@ -78,3 +78,5 @@ resource "aws_iam_role_policy_attachment" "iot_logging" {
   role       = aws_iam_role.iot_rule_engine.name
   policy_arn = aws_iam_policy.iot_logging.arn
 }
+
+# ──  ────────────────────────────────────────────────────

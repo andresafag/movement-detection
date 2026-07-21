@@ -1,25 +1,13 @@
 locals {
   name_prefix = "${var.project_name}-${var.environment}"
 
-  job_document = {
-    operation    = "ota_update"
-    version      = "$${aws:iot:parameter:firmware_version}"
-    firmware_url = "https://$${aws:iot:s3-id}/mi-bucket-firmware-esp32/firmware_v$${aws:iot:parameter:firmware_version}.bin"
-  }
+  # job_document = {
+  #   operation    = "ota_update"
+  #   version      = "$${aws:iot:parameter:firmware_version}"
+  #   firmware_url = "https://$${aws:iot:s3-id}/mi-bucket-firmware-esp32/firmware_v$${aws:iot:parameter:firmware_version}.bin"
+  # }
 }
 
-terraform {
-  required_providers {
-    awscc = {
-      source  = "hashicorp/awscc"
-      version = "~> 1.0"
-    }
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-}
 
 # ── IoT Thing ─────────────────────────────────────────────────────────────────
 
@@ -233,7 +221,7 @@ resource "aws_iam_role_policy" "iot-ota-policy" {
         Action = [
           "s3:GetBucketLocation"
         ]
-        Resource = ["${var.aws_s3_bucket_firmware_arn}"]
+        Resource = [var.aws_s3_bucket_firmware_arn]
       }
     ]
   })
