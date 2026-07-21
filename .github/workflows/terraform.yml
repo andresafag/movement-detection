@@ -102,7 +102,7 @@ jobs:
         working-directory: infrastructure
         run: |
           tflint --init
-          tflint --recursive --minimum-failure-severity=warning
+          tflint --recursive --minimum-failure-severity=error
         continue-on-error: true
 
       # - name: 💾 Cache .terraform
