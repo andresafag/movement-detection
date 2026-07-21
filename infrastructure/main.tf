@@ -84,6 +84,8 @@ module "eventbridge" {
 
 module "lambda_function" {
   source = "terraform-aws-modules/lambda/aws"
+  version = "~> 6.0"
+  create_current_version_allowed_triggers = false
 
   function_name = "firmware-sensor-movement-trigger"
   description   = "Sensor movement lambda function"

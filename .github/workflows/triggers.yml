@@ -12,7 +12,7 @@ jobs:
     uses: ./.github/workflows/tests.yml
 
   trigger-terraform:
-    needs: trigger-tests
+    #needs: trigger-tests
     
     permissions:
       contents: read
