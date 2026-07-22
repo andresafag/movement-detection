@@ -158,7 +158,7 @@ jobs:
         id: plan
         working-directory: infrastructure
         env:
-          TF_VAR_environment: ${{ inputs.environment || 'dev' }}
+          TF_VAR_environment: ${{ inputs.environment || 'dev' }} 
         run: |
           terraform plan -input=false -no-color -lock-timeout=300s -out=tfplan
           echo "📦 Plan size: $(du -h tfplan | cut -f1)"
