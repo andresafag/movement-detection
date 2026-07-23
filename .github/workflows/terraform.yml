@@ -154,14 +154,6 @@ jobs:
           # Init is needed to re-attach the backend; providers already cached.
           terraform init
       
-      - name: 📋 terraform plan 1
-        id: plan1
-        working-directory: infrastructure
-        env:
-          TF_VAR_environment: ${{ inputs.environment || 'dev' }} 
-        run: |
-          terraform apply -target="module.lambda_function.aws_iam_role_policy.additional_inline[0]" -target="module.lambda_function.aws_iam_role_policy.logs[0]" --auto-approve
-
       - name: 📋 terraform plan
         id: plan
         working-directory: infrastructure
