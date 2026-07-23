@@ -46,7 +46,6 @@ module "s3" {
   firmware_bucket_name                            = var.firmware_bucket_name
 }
 
-
 module "eventbridge" {
   source = "terraform-aws-modules/eventbridge/aws"
 
