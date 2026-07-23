@@ -67,7 +67,6 @@ module "eventbridge" {
     }
   }
 
-
   targets = {
     s3_upload_rule = [
       {
