@@ -114,7 +114,6 @@ resource "aws_iot_certificate" "device" {
 }
 
 # ── Attach certificate to thing ───────────────────────────────────────────────
-
 resource "aws_iot_thing_principal_attachment" "device" {
   thing     = aws_iot_thing.device.name
   principal = aws_iot_certificate.device.arn
