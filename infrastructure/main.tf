@@ -89,24 +89,28 @@ module "lambda_function" {
   description   = "Sensor movement lambda function"
   handler       = "index.lambda_handler"
   runtime       = "python3.12"
+
   allowed_triggers = {
     eventbridge = {
       principal  = "events.amazonaws.com"
       source_arn = module.eventbridge.eventbridge_rule_arns["s3_upload_rule"]
     }
   }
-  # Attach S3 read policy to the Lambda execution role
-  attach_policy_statements = true
-  policy_statements = {
-    s3_read = {
-      effect  = "Allow"
-      actions = ["s3:GetObject", "s3:ListBucket"]
-      resources = [
-        "${module.s3.aws_s3_bucket_firmware_arn}/",
-        "${module.s3.aws_s3_bucket_firmware_arn}/*"
-      ]
-    }
-  }
+
+  # 1. Disable inline policy statements (avoids iam:PutRolePolicy)
+  attach_policy_statements = false
+
+  # 2. Attach AWS Managed Policies instead (uses iam:AttachRolePolicy)
+  attach_policies    = true
+  number_of_policies = 2
+  policies = [
+    "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+    "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+  ]
+
+  # 3. Tell the module not to create inline CloudWatch log policies or log groups
+  use_existing_cloudwatch_log_group = true
+  attach_cloudwatch_logs_policy     = false
 
   source_path = "function_lambda"
 
