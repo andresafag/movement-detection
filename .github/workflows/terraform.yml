@@ -134,7 +134,7 @@ jobs:
       #     key: terraform-${{ runner.os }}-${{ hashFiles('infrastructure/**/*.tf', 'infrastructure/.terraform.lock.hcl') }}
       #     restore-keys: |
       #       terraform-${{ runner.os }}-
-      
+
 
       - name: 🪪 Assume AWS role via OIDC
         uses: aws-actions/configure-aws-credentials@v4
@@ -161,7 +161,7 @@ jobs:
         env:
           TF_VAR_environment: ${{ inputs.environment || 'dev' }} 
         run: |
-          terraform plan -input=false -no-color -lock-timeout=300s -out=tfplan
+          terraform plan -input=false -no-color -lock-timeout=300s -out=tfplan || [ $? -eq 2 ]
           echo "📦 Plan size: $(du -h tfplan | cut -f1)"
 
 
