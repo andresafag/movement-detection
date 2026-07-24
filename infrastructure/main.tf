@@ -80,6 +80,12 @@ module "eventbridge" {
     Name = "esp32-eventbridge-data"
   }
 }
+# 1. Statically declare the zip archive generation
+data "archive_file" "lambda_zip" {
+  type        = "zip"
+  source_dir  = "${path.module}/function_lambda"
+  output_path = "${path.module}/lambda_function_payload.zip"
+}
 
 module "lambda_function" {
   source                                  = "terraform-aws-modules/lambda/aws"
@@ -113,7 +119,8 @@ module "lambda_function" {
   attach_cloudwatch_logs_policy     = false
 
 
-  source_path = "function_lambda"
+  create_package         = false
+  local_existing_package = data.archive_file.lambda_zip.output_path
 
   tags = {
     Name = "sensor-movement-esp32"
