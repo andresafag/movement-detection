@@ -112,6 +112,7 @@ module "lambda_function" {
   use_existing_cloudwatch_log_group = false
   attach_cloudwatch_logs_policy     = false
 
+
   source_path = "function_lambda"
 
   tags = {
