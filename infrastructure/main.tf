@@ -111,7 +111,7 @@ module "lambda_function" {
   # 3. Tell the module not to create inline CloudWatch log policies or log groups
   use_existing_cloudwatch_log_group = false
   attach_cloudwatch_logs_policy     = false
-  
+
 
   source_path = "function_lambda"
 
