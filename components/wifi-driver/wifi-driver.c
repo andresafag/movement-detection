@@ -157,7 +157,7 @@ int mi_wifi_inicializar()
 
     wifi_config_t wifi_config = {
         .sta = {
-            .ssid = "BRIGETH",          
+            .ssid = "Brigeth",          
             .password = "12345678",  
             .threshold.authmode = WIFI_AUTH_WPA2_PSK,
         },

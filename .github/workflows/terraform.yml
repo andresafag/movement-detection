@@ -189,13 +189,13 @@ jobs:
           terraform_version: ${{ inputs.TF_VERSION }}
           terraform_wrapper: false
 
-      - name: 💾 Cache .terraform
-        uses: actions/cache@v4
-        with:
-          path: infrastructure/.terraform
-          key: terraform-${{ runner.os }}-${{ hashFiles('infrastructure/**/*.tf', 'infrastructure/.terraform.lock.hcl') }}
-          restore-keys: |
-            terraform-${{ runner.os }}-
+      # - name: 💾 Cache .terraform
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: infrastructure/.terraform
+      #     key: terraform-${{ runner.os }}-${{ hashFiles('infrastructure/**/*.tf', 'infrastructure/.terraform.lock.hcl') }}
+      #     restore-keys: |
+      #       terraform-${{ runner.os }}-
 
       - name: 🪪 Assume AWS role via OIDC
         uses: aws-actions/configure-aws-credentials@v4
@@ -228,7 +228,24 @@ jobs:
         run: |
           set -euo pipefail
           terraform apply -auto-approve 
+      
+      - name : 📝 espressif idf
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: 'v6.0.2'      
+          target: 'esp32'
 
+      - name: 🏗️ Build ESP-IDF Project
+        run: idf.py -b 115200 set-target esp32 build
+
+      - name: 🚀 Upload Binaries to Amazon S3
+        if: success()
+        working-directory: .
+        env:
+          TF_VAR_environment: ${{ inputs.environment || 'dev' }}
+        run: |
+          aws s3 cp build/app-template.bin s3://esp32-movement-sensor-firmware-bucket/latest.bin
+        
       - name: 📤 Publish outputs
         if: success()
         working-directory: infrastructure

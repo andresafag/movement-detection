@@ -89,7 +89,7 @@ void init_movement_sensor(void) {
 
 
 	gpio_set_level(BLUE_LED_PIN, 1);
-	vTaskDelay(pdMS_TO_TICKS(500));
+	vTaskDelay(pdMS_TO_TICKS(1500));
 	gpio_set_level(BLUE_LED_PIN, 0);
 
 	// Install the global ESP32 ISR routing engine
