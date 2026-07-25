@@ -57,7 +57,7 @@ module "eventbridge" {
       enabled     = true
       event_pattern = jsonencode({
         source      = ["aws.s3"]
-        detail-type = ["Firmware uploaded"]
+        detail-type = ["Object Created"]
         detail = {
           bucket = {
             name = ["esp32-movement-sensor-firmware-bucket"]
@@ -115,6 +115,11 @@ module "lambda_function" {
   source_path    = "${path.module}/function_lambda" # Apunta directamente a la carpeta, el módulo creará el zip de forma segura
   artifacts_dir  = "${path.root}/.terraform/lambda-artifacts"
   #ignore_source_code_hash = true
+  event_source_mapping = {
+    eventbridge = {
+      event_source_arn = module.eventbridge.eventbridge_rule_arns["s3_upload_rule"]
+    }
+  }
 
   tags = {
     Name = "sensor-movement-esp32"
