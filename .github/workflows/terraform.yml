@@ -246,7 +246,7 @@ jobs:
         working-directory: infrastructure
         env:
           TF_VAR_environment: ${{ inputs.environment || 'dev' }}
-        run: terraform apply tfplan -auto-approve 
+        run: terraform apply tfplan 
       
       - name : 📝 espressif idf
         uses: espressif/esp-idf-ci-action@v1
