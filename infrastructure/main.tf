@@ -98,8 +98,8 @@ module "lambda_function" {
   }
 
   attach_policy_statements = false
-  attach_policies    = true
-  number_of_policies = 2
+  attach_policies          = true
+  number_of_policies       = 2
   policies = [
     "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
     "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
