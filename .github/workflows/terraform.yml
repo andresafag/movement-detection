@@ -251,9 +251,9 @@ jobs:
         with:
           esp_idf_version: 'v6.0.2'      
           target: 'esp32'
-
-      - name: 🏗️ Build ESP-IDF Project
-        run: idf.py -b 115200 set-target esp32 build
+          command: |
+            idf.py set-target esp32
+            idf.py -b 115200 build
 
       - name: 🚀 Upload Binaries to Amazon S3
         if: success()
