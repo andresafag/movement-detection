@@ -13,11 +13,23 @@ iot_client = boto3.client('iot')
 ROLE_ARN = "arn:aws:iam::688567305851:role/sensor-movement"
 
 def handler(event, context):
+    # Imprime el evento recibido para facilitar la depuración en CloudWatch Logs
+    logger.info(f"Full received event: {json.dumps(event)}")
+    
     try:
-        # 1. Parse S3 bucket and object key from the event trigger
-        s3_record = event['Records'][0]['s3']
-        bucket_name = s3_record['bucket']['name']
-        object_key = urllib.parse.unquote_plus(s3_record['object']['key'])
+        # 1. Parse S3 bucket and object key depending on the event source
+        if 'detail' in event:
+            # Estructura cuando el evento viene de EventBridge
+            bucket_name = event['detail']['bucket']['name']
+            raw_key = event['detail']['object']['key']
+            object_key = urllib.parse.unquote_plus(raw_key)
+        elif 'Records' in event:
+            # Estructura tradicional cuando se prueba con la plantilla nativa de S3
+            s3_record = event['Records'][0]['s3']
+            bucket_name = s3_record['bucket']['name']
+            object_key = urllib.parse.unquote_plus(s3_record['object']['key'])
+        else:
+            raise KeyError("Formato de evento desconocido. No se encontró 'detail' ni 'Records'.")
         
         logger.info(f"Triggered by file: s3://{bucket_name}/{object_key}")
         
