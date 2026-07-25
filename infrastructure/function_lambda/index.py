@@ -12,7 +12,7 @@ iot_client = boto3.client('iot')
 # Define your AWS Role ARN that allows IoT to read from S3
 ROLE_ARN = "arn:aws:iam::688567305851:role/sensor-movement"
 
-def handler(event, context):
+def lambda_handler(event, context):
     try:
         # 1. Parse S3 bucket and object key from the event trigger
         s3_record = event['Records'][0]['s3']
