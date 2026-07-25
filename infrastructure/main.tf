@@ -87,7 +87,7 @@ module "lambda_function" {
 
   function_name = "firmware-sensor-movement-trigger"
   description   = "Sensor movement lambda function"
-  handler       = "index.lambda_handler"
+  handler       = "index.handler"
   runtime       = "python3.12"
 
   allowed_triggers = {
