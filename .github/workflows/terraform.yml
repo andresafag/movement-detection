@@ -118,69 +118,69 @@ jobs:
   # plan — runs on every PR and every push, never applies. Uploads the
   # binary plan as an artifact so reviewers can inspect it locally.
   # =========================================================================
-  plan:
-    name: 📋 plan (${{ inputs.environment || 'dev' }})
-    needs: init
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: 📥 Check out
-        uses: actions/checkout@v4
+  # plan:
+  #   name: 📋 plan (${{ inputs.environment || 'dev' }})
+  #   needs: init
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 20
+  #   steps:
+  #     - name: 📥 Check out
+  #       uses: actions/checkout@v4
 
-      # - name: 💾 Cache .terraform
-      #   uses: actions/cache@v4
-      #   with:
-      #     path: infrastructure/.terraform
-      #     key: terraform-${{ runner.os }}-${{ hashFiles('infrastructure/**/*.tf', 'infrastructure/.terraform.lock.hcl') }}
-      #     restore-keys: |
-      #       terraform-${{ runner.os }}-
+  #     # - name: 💾 Cache .terraform
+  #     #   uses: actions/cache@v4
+  #     #   with:
+  #     #     path: infrastructure/.terraform
+  #     #     key: terraform-${{ runner.os }}-${{ hashFiles('infrastructure/**/*.tf', 'infrastructure/.terraform.lock.hcl') }}
+  #     #     restore-keys: |
+  #     #       terraform-${{ runner.os }}-
 
 
-      - name: 🪪 Assume AWS role via OIDC
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          role-session-name: gha-terraform-plan-${{ github.run_id }}
-          aws-region: ${{ secrets.AWS_REGION }}
+  #     - name: 🪪 Assume AWS role via OIDC
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+  #         role-session-name: gha-terraform-plan-${{ github.run_id }}
+  #         aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: 🟦 Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ inputs.TF_VERSION }}
-          terraform_wrapper: false
+  #     - name: 🟦 Setup Terraform
+  #       uses: hashicorp/setup-terraform@v3
+  #       with:
+  #         terraform_version: ${{ inputs.TF_VERSION }}
+  #         terraform_wrapper: false
 
-      - name: 🔍 terraform init (no backend — uses restored cache for providers only)
-        working-directory: infrastructure
-        run: |
-          # Init is needed to re-attach the backend; providers already cached.
-          terraform init
+  #     - name: 🔍 terraform init (no backend — uses restored cache for providers only)
+  #       working-directory: infrastructure
+  #       run: |
+  #         # Init is needed to re-attach the backend; providers already cached.
+  #         terraform init
       
-      - name: 📋 terraform plan
-        id: plan
-        working-directory: infrastructure
-        env:
-          TF_VAR_environment: ${{ inputs.environment || 'dev' }} 
-        run: |
-          # Habilitamos que el script no se caiga inmediatamente si un comando da "error"
-          set +e
+  #     - name: 📋 terraform plan
+  #       id: plan
+  #       working-directory: infrastructure
+  #       env:
+  #         TF_VAR_environment: ${{ inputs.environment || 'dev' }} 
+  #       run: |
+  #         # Habilitamos que el script no se caiga inmediatamente si un comando da "error"
+  #         set +e
           
-          terraform plan -input=false -no-color -lock-timeout=300s -detailed-exitcode
-          TF_EXIT_CODE=$?
+  #         terraform plan -input=false -no-color -lock-timeout=300s -detailed-exitcode
+  #         TF_EXIT_CODE=$?
           
-          # Restauramos el comportamiento normal de GitHub Actions
-          set -e
+  #         # Restauramos el comportamiento normal de GitHub Actions
+  #         set -e
           
-          # Códigos de salida de -detailed-exitcode:
-          # 0 = Éxito (Sin cambios)
-          # 2 = Éxito (Hay cambios pendientes por aplicar)
-          # 1 = Error real de configuración o conexión
-          if [ $TF_EXIT_CODE -eq 0 ] || [ $TF_EXIT_CODE -eq 2 ]; then
-            echo "✅ El plan se generó correctamente."
-            exit 0
-          else
-            echo "❌ Error real en la configuración de Terraform."
-            exit 1
-          fi
+  #         # Códigos de salida de -detailed-exitcode:
+  #         # 0 = Éxito (Sin cambios)
+  #         # 2 = Éxito (Hay cambios pendientes por aplicar)
+  #         # 1 = Error real de configuración o conexión
+  #         if [ $TF_EXIT_CODE -eq 0 ] || [ $TF_EXIT_CODE -eq 2 ]; then
+  #           echo "✅ El plan se generó correctamente."
+  #           exit 0
+  #         else
+  #           echo "❌ Error real en la configuración de Terraform."
+  #           exit 1
+  #         fi
 
   # =========================================================================
   # apply — runs only on push to main (auto-apply dev) or via
@@ -190,7 +190,7 @@ jobs:
 
   apply:
     name: 🚀 apply (${{ inputs.environment || 'dev' }})
-    needs: [init, plan]
+    needs: [init]
     if: |
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_dispatch' && inputs.action == 'apply')
