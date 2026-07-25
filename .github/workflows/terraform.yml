@@ -281,6 +281,7 @@ jobs:
               jq -r 'to_entries[] | "| `\(.key)` | `\(.value.value)` |"'
           } >> "$GITHUB_STEP_SUMMARY"
 
+
   # =========================================================================
   # destroy — manual-only workflow_dispatch with type-the-name guard.
   # Skipped entirely on push and PR.
