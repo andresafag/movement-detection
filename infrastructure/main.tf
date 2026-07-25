@@ -81,12 +81,6 @@ module "eventbridge" {
   }
 }
 # 1. Statically declare the zip archive generation
-data "archive_file" "lambda_zip" {
-  type        = "zip"
-  source_dir  = "${path.module}/function_lambda"
-  output_path = "${path.module}/lambda_function_payload.zip"
-}
-
 module "lambda_function" {
   source                                  = "terraform-aws-modules/lambda/aws"
   create_current_version_allowed_triggers = false
@@ -103,10 +97,7 @@ module "lambda_function" {
     }
   }
 
-  # 1. Disable inline policy statements (avoids iam:PutRolePolicy)
   attach_policy_statements = false
-
-  # 2. Attach AWS Managed Policies instead (uses iam:AttachRolePolicy)
   attach_policies    = true
   number_of_policies = 2
   policies = [
@@ -114,13 +105,12 @@ module "lambda_function" {
     "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
   ]
 
-  # 3. Tell the module not to create inline CloudWatch log policies or log groups
   use_existing_cloudwatch_log_group = false
   attach_cloudwatch_logs_policy     = false
 
-
-  create_package         = false
-  local_existing_package = data.archive_file.lambda_zip.output_path
+  # === EL CAMBIO CRÍTICO AQUÍ ===
+  create_package = true
+  source_path    = "${path.module}/function_lambda" # Apunta directamente a la carpeta, el módulo creará el zip de forma segura
 
   tags = {
     Name = "sensor-movement-esp32"
