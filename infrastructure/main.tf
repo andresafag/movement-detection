@@ -91,12 +91,12 @@ module "lambda_function" {
   handler       = "index.handler"
   runtime       = "python3.12"
 
-  allowed_triggers = {
-    eventbridge = {
-      principal  = "events.amazonaws.com"
-      source_arn = module.eventbridge.eventbridge_rule_arns["s3_upload_rule"]
-    }
-  }
+  # allowed_triggers = {
+  #   eventbridge = {
+  #     principal  = "events.amazonaws.com"
+  #     source_arn = module.eventbridge.eventbridge_rule_arns["s3_upload_rule"]
+  #   }
+  # }
 
   attach_policy_statements = false
   attach_policies          = true
@@ -109,11 +109,9 @@ module "lambda_function" {
   use_existing_cloudwatch_log_group = false
   attach_cloudwatch_logs_policy     = false
 
-  # === EL CAMBIO CRÍTICO AQUÍ ===
   create_package = true
   source_path    = "${path.module}/function_lambda" # Apunta directamente a la carpeta, el módulo creará el zip de forma segura
   artifacts_dir  = "${path.root}/.terraform/lambda-artifacts"
-  #ignore_source_code_hash = true
 
 
   tags = {
