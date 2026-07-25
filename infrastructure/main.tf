@@ -79,7 +79,7 @@ module "eventbridge" {
   tags = {
     Name = "esp32-eventbridge-data"
   }
-  
+
 }
 # 1. Statically declare the zip archive generation
 module "lambda_function" {
