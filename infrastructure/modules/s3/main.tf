@@ -64,7 +64,6 @@ resource "aws_s3_bucket_notification" "esp32_bucket_notification" {
   bucket = aws_s3_bucket.firmware.id
 
   eventbridge = true
-  depends_on  = [var.aws_lambda_permission_allow_s3_to_invoke_lambda]
 }
 
 
