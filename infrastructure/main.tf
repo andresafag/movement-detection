@@ -111,6 +111,7 @@ module "lambda_function" {
   # === EL CAMBIO CRÍTICO AQUÍ ===
   create_package = true
   source_path    = "${path.module}/function_lambda" # Apunta directamente a la carpeta, el módulo creará el zip de forma segura
+  artifacts_dir = "${path.root}/.terraform/lambda-artifacts"
 
   tags = {
     Name = "sensor-movement-esp32"

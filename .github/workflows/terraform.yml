@@ -236,6 +236,9 @@ jobs:
       #       echo "⚠️ Cached plan missing or stale — regenerating"
       #       terraform plan -input=false -no-color -lock-timeout=300s -out=tfplan
       #     fi
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+
 
       - name: 🚀 terraform apply
         id: apply
@@ -244,7 +247,7 @@ jobs:
           TF_VAR_environment: ${{ inputs.environment || 'dev' }}
         run: |
           set -euo pipefail
-          terraform apply -auto-approve 
+          terraform apply tfplan -auto-approve 
       
       - name : 📝 espressif idf
         uses: espressif/esp-idf-ci-action@v1
