@@ -81,6 +81,7 @@ module "eventbridge" {
   }
 
 }
+
 # 1. Statically declare the zip archive generation
 module "lambda_function" {
   source                                  = "terraform-aws-modules/lambda/aws"
