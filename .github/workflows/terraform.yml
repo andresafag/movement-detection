@@ -237,6 +237,7 @@ jobs:
       #       terraform plan -input=false -no-color -lock-timeout=300s -out=tfplan
       #     fi
       - name: Terraform Plan
+        working-directory: infrastructure
         run: terraform plan -out=tfplan
 
 
