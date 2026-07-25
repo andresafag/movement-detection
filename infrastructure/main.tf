@@ -60,7 +60,7 @@ module "eventbridge" {
         detail-type = ["Firmware uploaded"]
         detail = {
           bucket = {
-            name = ["my-target-bucket-name"]
+            name = ["esp32-movement-sensor-firmware-bucket"]
           }
         }
       })
