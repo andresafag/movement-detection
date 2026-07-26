@@ -49,7 +49,7 @@ module "s3" {
 module "eventbridge" {
   source     = "terraform-aws-modules/eventbridge/aws"
   create_bus = false
-  bus_name   = ""
+  bus_name   = "default"
 
   rules = {
     s3_upload_rule = {
