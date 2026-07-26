@@ -39,7 +39,8 @@ def handler(event, context):
         
         # 3. Create a unique Job ID
         clean_key = object_key.replace('/', '-').replace('.', '-')
-        job_id = f"ota-job-{clean_key}"[:64] # Max length is 64 characters
+        short_id = uuid.uuid4().hex[:6]
+        job_id = f"ota-job-{clean_key}-{short_id}"[:64]
         
         logger.info(f"Creating IoT OTA Job: {job_id} for target: {target_arn}")
         
