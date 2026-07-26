@@ -49,7 +49,7 @@ module "s3" {
 module "eventbridge" {
   source = "terraform-aws-modules/eventbridge/aws"
 
-  bus_name = false
+  bus_name = ""
 
   rules = {
     s3_upload_rule = {
@@ -91,12 +91,13 @@ module "lambda_function" {
   handler       = "index.handler"
   runtime       = "python3.12"
 
-  # allowed_triggers = {
-  #   eventbridge = {
-  #     principal  = "events.amazonaws.com"
-  #     source_arn = module.eventbridge.eventbridge_rule_arns["s3_upload_rule"]
-  #   }
-  # }
+
+  allowed_triggers = {
+    eventbridge = {
+      principal  = "events.amazonaws.com"
+      source_arn = module.eventbridge.eventbridge_rule_arns["s3_upload_rule"]
+    }
+  }
 
   attach_policy_statements = false
   attach_policies          = true
