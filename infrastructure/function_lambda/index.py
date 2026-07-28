@@ -2,6 +2,8 @@ import json
 import logging
 import urllib.parse
 import boto3
+import uuid
+ 
 
 # Initialize logger and AWS clients
 logger = logging.getLogger()

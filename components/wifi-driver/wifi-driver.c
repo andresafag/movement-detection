@@ -9,9 +9,13 @@
 #include "esp_log.h"
 #include "esp_sntp.h"
 #include "ping/ping_sock.h"
-#include "lwip/inet.h"   
+#include "lwip/inet.h"
+#include "esp_check.h"
+#include "sdkconfig.h" 
+#include <string.h>
 
 static const char *TAG = "WIFI_DRIVER";
+
 
 
 void initialize_sntp(void) {
@@ -37,8 +41,6 @@ void wait_for_time_sync(void) {
         vTaskDelay(2000 / portTICK_PERIOD_MS);
     }
     
-    // Set your local time zone (e.g., EST/EDT for New York)
-    // You can find your specific TZ string online
     setenv("TZ", "EST5EDT,M3.2.0,M11.1.0", 1);
     tzset();
 }
@@ -95,17 +97,14 @@ esp_err_t check_internet_connection(void) {
         .on_ping_end = cmd_ping_on_ping_end,
         .cb_args = NULL
     };
+	
+	esp_ping_handle_t ping;
 
-    esp_ping_handle_t ping;
-    esp_err_t err = esp_ping_new_session(&ping_config, &cbs, &ping);
-    if (err == ESP_OK) {
-        esp_ping_start(ping);
-        ESP_LOGI(TAG, "Ping test started...");
-        return ESP_OK;
-    }
-    
-    ESP_LOGE(TAG, "Failed to initialize ping session");
-    return ESP_FAIL;
+	ESP_RETURN_ON_ERROR(esp_ping_new_session(&ping_config, &cbs, &ping), TAG, "Failed to initialize ping session");
+
+	esp_ping_start(ping);
+	ESP_LOGI(TAG, "Ping test started...");
+	return ESP_OK;
 }
 
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
@@ -134,10 +133,12 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
 int mi_wifi_inicializar() 
 {
     ESP_LOGI(TAG, "Iniciando configuracion de Wi-Fi...");
-
+	printf("SSID Directo de Kconfig: %s\n", CONFIG_ESP_WIFI_SSID);
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_create_default_wifi_sta();
+	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+	ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
     ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
                                                         ESP_EVENT_ANY_ID,
@@ -149,19 +150,16 @@ int mi_wifi_inicializar()
                                                         &wifi_event_handler,
                                                         NULL,
                                                         NULL));
+														
+														ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+														wifi_config_t wifi_config = { 0 };
 
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-
-    wifi_config_t wifi_config = {
-        .sta = {
-            .ssid = "Brigeth",          
-            .password = "12345678",  
-            .threshold.authmode = WIFI_AUTH_WPA2_PSK,
-        },
-    };
+														    // 2. Copiamos los bytes exactos de la macro dentro de los arreglos del driver
+														    memcpy(wifi_config.sta.ssid, CONFIG_ESP_WIFI_SSID, sizeof(wifi_config.sta.ssid));
+														    memcpy(wifi_config.sta.password, CONFIG_ESP_WIFI_PASSWORD, sizeof(wifi_config.sta.password));
+														    
+														    wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+														    
 
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start()); 

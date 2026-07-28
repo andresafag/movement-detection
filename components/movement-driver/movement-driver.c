@@ -38,7 +38,7 @@ static void pir_processing_task(void* arg) {
 		if (xQueueReceive(pir_evt_queue, &io_num, portMAX_DELAY)) {
 			ESP_LOGW(TAG, "Motion Detected on GPIO %lu!", io_num);
 
-			// 1. Turn the Blue LED ON
+			// 1. Turn the Red LED ON
 			gpio_set_level(BLUE_LED_PIN, 1);
 			
 			// This alerts the system that motion happened. We don't need to pass extra data.
@@ -46,7 +46,7 @@ static void pir_processing_task(void* arg) {
 
 
 			// 2. Keep it shining for 2 seconds (serves as your movement window)
-			vTaskDelay(pdMS_TO_TICKS(50000));
+			vTaskDelay(pdMS_TO_TICKS(5000));
 
 			// 3. Turn the Blue LED OFF
 			gpio_set_level(BLUE_LED_PIN, 0);

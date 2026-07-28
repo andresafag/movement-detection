@@ -68,6 +68,7 @@ graph TD
     style I fill:#fffacd,stroke:#333
 ```
 
+
 | Path | Purpose | Tech |
 |------|---------|------|
 | `main/main.c` | App entry point — boots PIR driver, idle-loops | ESP-IDF, FreeRTOS |
@@ -87,32 +88,7 @@ graph TD
 
 ### 🔌 Hardware Wiring
 
-```mermaid
-graph LR
-    subgraph ESP32["🧠 ESP32 DevKit V1"]
-        G27[GPIO 27]
-        G25[GPIO 25]
-        G5V[5V]
-        GG[GND]
-    end
-
-    subgraph PIR["🟢 HC-SR501 PIR"]
-        VCC[VCC]
-        OUT[OUT]
-        GND[GND]
-    end
-
-    LED[🔵 Blue LED]
-
-    VCC --> G5V
-    OUT --> G27
-    GND --> GG
-    G25 --> LED
-    LED --> GG
-
-    style ESP32 fill:#e6f3ff,stroke:#333
-    style PIR fill:#e6ffe6,stroke:#333
-```
+![Screenshot of my project](pir-circuit.png)
 
 | Component | ESP32 Pin | Notes |
 |-----------|-----------|-------|

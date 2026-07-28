@@ -1,14 +1,25 @@
-# put here your custom config value
-menu "Example Configuration"
+menu "WIFI Configuration"
 config ESP_WIFI_SSID
     string "WiFi SSID"
-    default "myssid"
+    default "Brigeth"
     help
-	SSID (network name) for the example to connect to.
+		SSID (network name) for the example to connect to.
 
 config ESP_WIFI_PASSWORD
     string "WiFi Password"
-    default "mypassword"
+    default "12345678"
     help
-	WiFi password (WPA or WPA2) for the example to use.
+		WiFi password (WPA or WPA2) for the example to use.
+
+config AWS_THING_NAME
+	string "AWS Thing Name"
+	default "esp32-sensor-01"
+	help
+		Name of the AWS IoT thing to connect to.
+
+config AWS_ENDPOINT
+	string "AWS IoT Endpoint"
+	default "mqtts://a264fwcrxua8s7-ats.iot.us-east-1.amazonaws.com"
+	help
+		Endpoint of the AWS IoT thing to connect to.
 endmenu
