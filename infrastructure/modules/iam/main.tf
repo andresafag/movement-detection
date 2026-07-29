@@ -52,7 +52,7 @@ resource "aws_iam_role_policy_attachment" "iot_sns" {
   policy_arn = aws_iam_policy.sns_publish.arn
 }
 
-# ── CloudWatch Logs Policy ────────────────────────────────────────────────────
+# ── CloudWatch Logs Policy ───────────────────────────────────────────────────
 # Allows IoT Rules Engine to write error logs to CloudWatch.
 
 data "aws_iam_policy_document" "iot_logging" {
