@@ -48,6 +48,7 @@ permissions:
   actions: read
 
 jobs:
+
   # =========================================================================
   # init — always runs first. Bootstraps the backend, downloads providers,
   # validates configuration. Other jobs reuse its cache via actions/cache.
