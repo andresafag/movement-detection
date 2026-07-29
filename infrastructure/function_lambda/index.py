@@ -37,7 +37,7 @@ def handler(event, context):
         
         # 2. Extract or define your IoT Target (Thing Name or Thing Group ARN)
         target_thing_name = "esp32-sensor-01" 
-        target_arn = f"arn:aws:iot:us-east-1:123456789012:thing/{target_thing_name}"
+        target_arn = f"arn:aws:iot:us-east-1:688567305851:thing/{target_thing_name}"
         
         # 3. Create a unique Job ID
         clean_key = object_key.replace('/', '-').replace('.', '-')
