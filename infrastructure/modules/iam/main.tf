@@ -29,7 +29,7 @@ resource "aws_iam_role" "iot_rule_engine" {
   }
 }
 
-# ── SNS Publish Policy ────────────────────────────────────────────────────────
+# ──  SNS Publish Policy ────────────────────────────────────────────────────────
 # Least-privilege: only Publish on the specific sensor alerts topic.
 
 data "aws_iam_policy_document" "sns_publish" {
