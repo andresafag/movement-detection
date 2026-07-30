@@ -66,7 +66,7 @@ def handler(event, context):
         response = iot_client.create_job(
             jobId=job_id,
             targets=[target_arn],
-            document=json.dumps(job_document),
+            document=json.dumps(job_document).replace("\\/", "/"),
             description="Automated firmware OTA update via S3 presigned URL.",
             targetSelection='SNAPSHOT'
         )

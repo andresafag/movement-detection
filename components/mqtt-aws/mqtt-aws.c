@@ -152,29 +152,41 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
                 // Comenzar el parseo con cJSON
                 cJSON *root = cJSON_Parse(json_str);
                 if (root != NULL) {
-                    cJSON *execution = cJSON_GetObjectItemCaseSensitive(root, "execution");
-                    if (execution != NULL) {
-                        
-                        // 1. Extraer el jobId
-                        cJSON *jobId = cJSON_GetObjectItemCaseSensitive(execution, "jobId");
-                        // 2. Extraer el executionNumber
-                        cJSON *execNum = cJSON_GetObjectItemCaseSensitive(execution, "executionNumber");
-                        // 3. Entrar a jobDocument
-                        cJSON *jobDoc = cJSON_GetObjectItemCaseSensitive(execution, "jobDocument");
-                        
-                        if (cJSON_IsString(jobId) && cJSON_IsNumber(execNum) && jobDoc != NULL) {
-                            // 4. Extraer la URL pre-firmada de S3
-                            cJSON *url = cJSON_GetObjectItemCaseSensitive(jobDoc, "url");
-                            
-                            if (cJSON_IsString(url)) {
-                                // Copiar de forma segura a nuestros buffers locales
-                                strlcpy(current_job_id, jobId->valuestring, sizeof(current_job_id));
-                                exec_number = execNum->valueint;
-                                strlcpy(url_buffer, url->valuestring, sizeof(url_buffer));
-                                parse_success = true;
-                            }
-                        }
-                    }
+					cJSON *execution = cJSON_GetObjectItemCaseSensitive(root, "execution");
+					if (execution != NULL) {
+					    
+					    // 1. Extraer el jobId
+					    cJSON *jobId = cJSON_GetObjectItemCaseSensitive(execution, "jobId");
+					    // 2. Extraer el executionNumber
+					    cJSON *execNum = cJSON_GetObjectItemCaseSensitive(execution, "executionNumber");
+					    // 3. Entrar a jobDocument
+					    cJSON *jobDoc = cJSON_GetObjectItemCaseSensitive(execution, "jobDocument");
+					    
+					    // Imprimir para depuración visual de punteros
+					    ESP_LOGI(TAG, "Punteros - jobId: %p, execNum: %p, jobDoc: %p", jobId, execNum, jobDoc);
+					    
+					    // Verificación segura de existencia antes de extraer la URL
+					    if (jobId != NULL && execNum != NULL && jobDoc != NULL) {
+					        
+					        // 4. Extraer la URL pre-firmada de S3 desde el contenedor jobDoc
+					        cJSON *url = cJSON_GetObjectItemCaseSensitive(jobDoc, "url");
+					        
+					        // Verificamos que los contenidos finales sean del tipo correcto antes de copiar
+					        if (cJSON_IsString(jobId) && cJSON_IsNumber(execNum) && cJSON_IsString(url)) {
+					            
+					            // Copiar de forma segura a nuestros buffers locales
+					            strlcpy(current_job_id, jobId->valuestring, sizeof(current_job_id));
+					            exec_number = execNum->valueint;
+					            strlcpy(url_buffer, url->valuestring, sizeof(url_buffer));
+					            parse_success = true;
+					            
+					        } else {
+					            // Esto te dirá exactamente cuál de los tres datos falló el tipo de cJSON
+					            ESP_LOGE(TAG, "Fallo de tipo - IsString(jobId): %d, IsNumber(execNum): %d, IsString(url): %d", 
+					                     cJSON_IsString(jobId), cJSON_IsNumber(execNum), cJSON_IsString(url));
+					        }
+					    }
+					}
                     cJSON_Delete(root);
                 } else {
                     ESP_LOGE(TAG, "Error de sintaxis crítica en el JSON recibido.");
