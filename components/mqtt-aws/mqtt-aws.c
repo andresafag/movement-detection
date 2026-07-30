@@ -6,7 +6,8 @@
 #include "esp_ota_ops.h"
 #include "esp_https_ota.h"
 #include "mqtt_client.h"  
-#include "sdkconfig.h"      
+#include "sdkconfig.h"  
+#include "cJSON.h"    
 
 static const char *TAG = "AWS_MQTT";
 static char topic_jobs[128];
@@ -113,7 +114,7 @@ static void ejecutar_actualizacion_ota(const char *url_firmware) {
 }
 
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data) {
-    esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)event_data;
+    esp_mqtt_event_handle_t event = event_data;
     
     switch ((esp_mqtt_event_id_t)event_id) {
         case MQTT_EVENT_CONNECTED: {
@@ -122,79 +123,90 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
             esp_mqtt_client_subscribe(s_mqtt_client, topic_jobs, 1);
             break;
         } 
+        
         case MQTT_EVENT_DATA: {
-            // GUARD: If an OTA is already running or waiting to restart, ignore new incoming MQTT messages!
+            // GUARD: Si ya hay un OTA corriendo, ignoramos cualquier payload entrante
             if (s_ota_in_progress) {
                 ESP_LOGW(TAG, "Mensaje MQTT ignorado: OTA ya en proceso o pendiente de reinicio.");
                 break;
             }
 
             if (strncmp(event->topic, topic_jobs, event->topic_len) == 0) {
-                ESP_LOGI(TAG, "Procesando mensaje entrante de Jobs...");
+                ESP_LOGI(TAG, "Procesando mensaje entrante de Jobs con cJSON...");
                 
-                static char current_job_id[64] = {0};
-                int exec_number = 0;
-                static char url_buffer[1024] = {0};
-
-                char json_str[event->data_len + 1];
+                // Reservar buffer temporal seguro para string nulo-terminado
+                char *json_str = malloc(event->data_len + 1);
+                if (json_str == NULL) {
+                    ESP_LOGE(TAG, "No se pudo asignar memoria para el JSON entrante.");
+                    break;
+                }
                 memcpy(json_str, event->data, event->data_len);
                 json_str[event->data_len] = '\0';
 
-                char *ptr_job = strstr(json_str, "\"jobId\":");
-                char *ptr_exec = strstr(json_str, "\"executionNumber\":");
-                char *ptr_url = strstr(json_str, "\"url\":");
+                // Variables para almacenar lo extraído
+                char current_job_id[64] = {0};
+                int exec_number = 0;
+                char url_buffer[1024] = {0};
+                bool parse_success = false;
 
-                if (ptr_job && ptr_exec && ptr_url) {
-                    if (sscanf(ptr_job, "\"jobId\":\"%63[^\"]\"", current_job_id) == 1 &&
-                        sscanf(ptr_exec, "\"executionNumber\":%d", &exec_number) == 1 &&
-                        sscanf(ptr_url, "\"url\":\"%1023[^\"]\"", url_buffer) == 1) {
-
-                        // Mark OTA in progress to block duplicate executions immediately
-                        s_ota_in_progress = true;
-
-                        ESP_LOGI(TAG, "URL de S3 y Job ID '%s' validados exitosamente.", current_job_id);
+                // Comenzar el parseo con cJSON
+                cJSON *root = cJSON_Parse(json_str);
+                if (root != NULL) {
+                    cJSON *execution = cJSON_GetObjectItemCaseSensitive(root, "execution");
+                    if (execution != NULL) {
                         
-                        // 1. Unsubscribe right away so AWS job updates don't hit us
-                        esp_mqtt_client_unsubscribe(s_mqtt_client, topic_jobs);
-
-                        // 2. Perform the OTA update
-                        ejecutar_actualizacion_ota(url_buffer);
-
-                        // 3. Send notification and save the exact msg_id returned by esp_mqtt_client_publish
-                        s_job_pub_msg_id = notificar_estatus_job(current_job_id, exec_number);
-
-                        // If publishing failed or returned an invalid ID, reboot immediately as fallback
-                        if (s_job_pub_msg_id < 0) {
-                            ESP_LOGE(TAG, "Error enviando notificación. Reiniciando de todos modos...");
-                            vTaskDelay(pdMS_TO_TICKS(1000));
-                            esp_restart();
+                        // 1. Extraer el jobId
+                        cJSON *jobId = cJSON_GetObjectItemCaseSensitive(execution, "jobId");
+                        // 2. Extraer el executionNumber
+                        cJSON *execNum = cJSON_GetObjectItemCaseSensitive(execution, "executionNumber");
+                        // 3. Entrar a jobDocument
+                        cJSON *jobDoc = cJSON_GetObjectItemCaseSensitive(execution, "jobDocument");
+                        
+                        if (cJSON_IsString(jobId) && cJSON_IsNumber(execNum) && jobDoc != NULL) {
+                            // 4. Extraer la URL pre-firmada de S3
+                            cJSON *url = cJSON_GetObjectItemCaseSensitive(jobDoc, "url");
+                            
+                            if (cJSON_IsString(url)) {
+                                // Copiar de forma segura a nuestros buffers locales
+                                strlcpy(current_job_id, jobId->valuestring, sizeof(current_job_id));
+                                exec_number = execNum->valueint;
+                                strlcpy(url_buffer, url->valuestring, sizeof(url_buffer));
+                                parse_success = true;
+                            }
                         }
-                        return;
                     }
+                    cJSON_Delete(root);
+                } else {
+                    ESP_LOGE(TAG, "Error de sintaxis crítica en el JSON recibido.");
                 }
 
-                ESP_LOGE(TAG, "No se pudieron extraer todos los datos del Job JSON.");
+                free(json_str);
+
+                if (parse_success) {
+                    s_ota_in_progress = true;
+                    ESP_LOGI(TAG, "URL de S3 y Job ID '%s' extraídos con cJSON exitosamente.", current_job_id);
+                    
+                    // Desuscribirse para que el tráfico del estado del Job no interfiera con la descarga
+                    esp_mqtt_client_unsubscribe(s_mqtt_client, topic_jobs);
+
+                    ejecutar_actualizacion_ota(url_buffer);
+
+                    // Notificar estatus de ejecución de vuelta a AWS IoT
+                    s_job_pub_msg_id = notificar_estatus_job(current_job_id, exec_number);
+
+                    if (s_job_pub_msg_id < 0) {
+                        ESP_LOGE(TAG, "Error enviando notificación a AWS. Reiniciando por precaución...");
+                        vTaskDelay(pdMS_TO_TICKS(1000));
+                        esp_restart();
+                    }
+                    return;
+                } else {
+                    ESP_LOGE(TAG, "No se pudieron extraer todos los campos (jobId, executionNumber, url) del JSON.");
+                }
             }
             break;
         }
-
-        case MQTT_EVENT_PUBLISHED: {
-            // Verify this PUBACK corresponds specifically to our Job notification message
-            if (s_ota_in_progress && event->msg_id == s_job_pub_msg_id) {
-                ESP_LOGI(TAG, "PUBACK recibido para Msg ID %d. Notificación confirmada por AWS.", event->msg_id);
-                ESP_LOGW(TAG, "Reiniciando sistema ahora con el nuevo firmware...");
-                
-                vTaskDelay(pdMS_TO_TICKS(100)); // Brief pause for serial flush
-                esp_restart();
-                return;
-            }
-            break;
-        }
-
-        case MQTT_EVENT_DISCONNECTED:
-            ESP_LOGW(TAG, "Conexión perdida con el broker de AWS.");
-            break;   
-
+        
         default:
             break;
     }

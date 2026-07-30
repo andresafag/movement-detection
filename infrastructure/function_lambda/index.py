@@ -46,28 +46,28 @@ def handler(event, context):
         
         logger.info(f"Creating IoT OTA Job: {job_id} for target: {target_arn}")
         
+        presigned_url = s3_client.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': bucket_name, 'Key': object_key},
+            ExpiresIn=3600
+        )
+
+        job_document = {
+            "execution": {
+                "jobId": job_id,
+                "executionNumber": 1,
+                "jobDocument": {
+                    "url": presigned_url
+                }
+            }
+        }
         # 4. Create the OTA Update Job
-        response = iot_client.create_ota_update(
-            otaUpdateId=job_id,
-            description="Automated firmware OTA update triggered by S3 upload.",
+        response = iot_client.create_job(
+            jobId=job_id,
             targets=[target_arn],
-            targetSelection='SNAPSHOT', # Use SNAPSHOT for one-time, CONTINUOUS for dynamic groups
-            awsJobExecutionsRolloutConfig={
-                'maximumPerMinute': 10
-            },
-            files=[
-                {
-                    'fileLocation': {
-                        's3Location': {
-                            'bucket': bucket_name,
-                            'key': object_key
-                        }
-                    },
-                    # Optional: Add code signing if your firmware requires it
-                    # 'codeSigning': { ... } 
-                },
-            ],
-            roleArn=ROLE_ARN
+            document=json.dumps(job_document),
+            description="Automated firmware OTA update via S3 presigned URL.",
+            targetSelection='SNAPSHOT'
         )
         
         logger.info(f"OTA Update Job created successfully. Response: {json.dumps(response, default=str)}")
