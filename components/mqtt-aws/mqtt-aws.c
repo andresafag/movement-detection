@@ -218,7 +218,6 @@ void init_mqtt(void) {
     memset(&mqtt_cfg, 0, sizeof(esp_mqtt_client_config_t));
 
     mqtt_cfg.broker.address.uri = AWS_ENDPOINT;
-	
  
 	// 2. AWS Server Verification (The Root CA)
 	mqtt_cfg.broker.verification.certificate = (const char *)aws_root_ca_pem_start;
