@@ -117,6 +117,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     esp_mqtt_event_handle_t event = event_data;
     
     switch ((esp_mqtt_event_id_t)event_id) {
+        
         case MQTT_EVENT_CONNECTED: {
             ESP_LOGI(TAG, "Conectado a AWS IoT Core de forma segura.");
             s_mqtt_client = event->client;
@@ -127,102 +128,114 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         case MQTT_EVENT_DATA: {
             // GUARD: Si ya hay un OTA corriendo, ignoramos cualquier payload entrante
             if (s_ota_in_progress) {
-                ESP_LOGW(TAG, "Mensaje MQTT ignorado: OTA ya en proceso o pendiente de reinicio.");
+                ESP_LOGW(TAG, "Mensaje MQTT ignorado: OTA ya en proceso.");
                 break;
             }
 
             if (strncmp(event->topic, topic_jobs, event->topic_len) == 0) {
-                ESP_LOGI(TAG, "Procesando mensaje entrante de Jobs con cJSON...");
                 
-                // Reservar buffer temporal seguro para string nulo-terminado
-                char *json_str = malloc(event->data_len + 1);
-                if (json_str == NULL) {
-                    ESP_LOGE(TAG, "No se pudo asignar memoria para el JSON entrante.");
-                    break;
+                // 1. Buffer estático para acumular los fragmentos del flujo MQTT
+                static char *json_assemble_buffer = NULL;
+                
+                if (event->current_data_offset == 0) {
+                    // Primer fragmento: Reservamos la memoria exacta total del payload
+                    json_assemble_buffer = malloc(event->total_data_len + 1);
+                    if (json_assemble_buffer == NULL) {
+                        ESP_LOGE(TAG, "No hay memoria para ensamblar el JSON de %d bytes", event->total_data_len);
+                        break;
+                    }
                 }
-                memcpy(json_str, event->data, event->data_len);
-                json_str[event->data_len] = '\0';
 
-                // Variables para almacenar lo extraído
+                if (json_assemble_buffer == NULL) {
+                    ESP_LOGE(TAG, "Error: Fragmento recibido sin inicialización de buffer.");
+                    break; 
+                }
+
+                // 2. Copiar el fragmento de datos actual en su posición correspondiente de memoria
+                memcpy(json_assemble_buffer + event->current_data_offset, event->data, event->data_len);
+
+                // 3. Verificar si el paquete completo ya se encuentra en RAM
+                if (event->current_data_offset + event->data_len < event->total_data_len) {
+                    ESP_LOGI(TAG, "Recibido fragmento MQTT: %d/%d bytes. Esperando el resto...", 
+                             event->current_data_offset + event->data_len, event->total_data_len);
+                    break; // Salir y esperar al siguiente disparo de MQTT_EVENT_DATA
+                }
+
+                // El JSON está completamente ensamblado
+                json_assemble_buffer[event->total_data_len] = '\0';
+                ESP_LOGI(TAG, "JSON ensamblado con éxito (%d bytes). Iniciando parseo...", event->total_data_len);
+
                 char current_job_id[64] = {0};
-                int exec_number = 0;
+                int exec_number = 1; 
                 char url_buffer[1024] = {0};
                 bool parse_success = false;
 
-                // Comenzar el parseo con cJSON
-                cJSON *root = cJSON_Parse(json_str);
+                // --- PARSEO ESTÁNDAR Y LIMPIO CON cJSON ---
+                cJSON *root = cJSON_Parse(json_assemble_buffer);
                 if (root != NULL) {
-					cJSON *execution = cJSON_GetObjectItemCaseSensitive(root, "execution");
-					if (execution != NULL) {
-					    
-					    // 1. Extraer el jobId
-					    cJSON *jobId = cJSON_GetObjectItemCaseSensitive(execution, "jobId");
-					    // 2. Extraer el executionNumber
-					    cJSON *execNum = cJSON_GetObjectItemCaseSensitive(execution, "executionNumber");
-					    // 3. Entrar a jobDocument
-					    cJSON *jobDoc = cJSON_GetObjectItemCaseSensitive(execution, "jobDocument");
-					    
-					    // Imprimir para depuración visual de punteros
-					    ESP_LOGI(TAG, "Punteros - jobId: %p, execNum: %p, jobDoc: %p", jobId, execNum, jobDoc);
-					    
-					    // Verificación segura de existencia antes de extraer la URL
-					    if (jobId != NULL && execNum != NULL && jobDoc != NULL) {
-					        
-					        // 4. Extraer la URL pre-firmada de S3 desde el contenedor jobDoc
-					        cJSON *url = cJSON_GetObjectItemCaseSensitive(jobDoc, "url");
-					        
-					        // Verificamos que los contenidos finales sean del tipo correcto antes de copiar
-					        if (cJSON_IsString(jobId) && cJSON_IsNumber(execNum) && cJSON_IsString(url)) {
-					            
-					            // Copiar de forma segura a nuestros buffers locales
-					            strlcpy(current_job_id, jobId->valuestring, sizeof(current_job_id));
-					            exec_number = execNum->valueint;
-					            strlcpy(url_buffer, url->valuestring, sizeof(url_buffer));
-					            parse_success = true;
-					            
-					        } else {
-					            // Esto te dirá exactamente cuál de los tres datos falló el tipo de cJSON
-					            ESP_LOGE(TAG, "Fallo de tipo - IsString(jobId): %d, IsNumber(execNum): %d, IsString(url): %d", 
-					                     cJSON_IsString(jobId), cJSON_IsNumber(execNum), cJSON_IsString(url));
-					        }
-					    }
-					}
-                    cJSON_Delete(root);
+                    
+                    cJSON *execution = cJSON_GetObjectItemCaseSensitive(root, "execution");
+                    if (execution != NULL) {
+                        
+                        cJSON *jobId = cJSON_GetObjectItemCaseSensitive(execution, "jobId");
+                        cJSON *execNum = cJSON_GetObjectItemCaseSensitive(execution, "executionNumber");
+                        cJSON *jobDoc = cJSON_GetObjectItemCaseSensitive(execution, "jobDocument");
+                        
+                        if (jobId != NULL && execNum != NULL && jobDoc != NULL) {
+                            
+                            cJSON *url = cJSON_GetObjectItemCaseSensitive(jobDoc, "url");
+                            
+                            // Comprobación segura de punteros y contenidos antes de copiar
+                            bool has_job = (jobId->valuestring != NULL && strlen(jobId->valuestring) > 0);
+                            bool has_url = (url != NULL && url->valuestring != NULL && strlen(url->valuestring) > 0);
+                            
+                            if (has_job && has_url) {
+                                strlcpy(current_job_id, jobId->valuestring, sizeof(current_job_id));
+                                exec_number = execNum->valueint;
+                                strlcpy(url_buffer, url->valuestring, sizeof(url_buffer));
+                                parse_success = true;
+                            }
+                        }
+                    }
+                    cJSON_Delete(root); // Liberación crítica de memoria del árbol JSON
                 } else {
-                    ESP_LOGE(TAG, "Error de sintaxis crítica en el JSON recibido.");
+                    ESP_LOGE(TAG, "Error crítico de sintaxis: cJSON no pudo procesar los bytes.");
                 }
 
-                free(json_str);
+                // Liberar de inmediato el búfer de ensamblaje para mitigar la fragmentación de la RAM
+                free(json_assemble_buffer);
+                json_assemble_buffer = NULL;
 
+                // --- PROCESAR RESULTADO FINAL ---
                 if (parse_success) {
                     s_ota_in_progress = true;
-                    ESP_LOGI(TAG, "URL de S3 y Job ID '%s' extraídos con cJSON exitosamente.", current_job_id);
+                    ESP_LOGI(TAG, "¡ÉXITO TOTAL! URL y Job ID '%s' extraídos correctamente.", current_job_id);
                     
-                    // Desuscribirse para que el tráfico del estado del Job no interfiera con la descarga
+                    // Cancelar suscripción para que el tráfico repetido de Jobs no interfiera con la descarga HTTP
                     esp_mqtt_client_unsubscribe(s_mqtt_client, topic_jobs);
-
+                    
+                    // Lanzar la descarga del firmware e informar estatus a AWS IoT Core
                     ejecutar_actualizacion_ota(url_buffer);
-
-                    // Notificar estatus de ejecución de vuelta a AWS IoT
                     s_job_pub_msg_id = notificar_estatus_job(current_job_id, exec_number);
 
                     if (s_job_pub_msg_id < 0) {
-                        ESP_LOGE(TAG, "Error enviando notificación a AWS. Reiniciando por precaución...");
+                        ESP_LOGE(TAG, "Error notificando estatus de Job. Reiniciando hardware por precaución...");
                         vTaskDelay(pdMS_TO_TICKS(1000));
                         esp_restart();
                     }
-                    return;
                 } else {
-                    ESP_LOGE(TAG, "No se pudieron extraer todos los campos (jobId, executionNumber, url) del JSON.");
+                    ESP_LOGE(TAG, "Error: Estructura inválida. No se pudieron extraer de forma segura los campos (jobId, executionNumber, url).");
+                    ESP_LOGE(TAG, "Asegúrate de haber limpiado el payload de salida en tu AWS Lambda.");
                 }
             }
-            break;
+            break; 
         }
         
         default:
             break;
     }
 }
+
 
 void init_mqtt(void) {
 	snprintf(topic_jobs, sizeof(topic_jobs), "$aws/things/%s/jobs/notify-next", AWS_THING_NAME);

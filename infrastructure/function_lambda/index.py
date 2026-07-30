@@ -54,19 +54,15 @@ def handler(event, context):
         )
 
         job_document = {
-            "execution": {
-                "jobId": job_id,
-                "executionNumber": 1,
-                "jobDocument": {
-                    "url": presigned_url
-                }
-            }
+            "url": presigned_url,
+            "version": "1.0.0" # Opcional: puedes meter metadatos aquí si quieres
         }
+        
         # 4. Create the OTA Update Job
         response = iot_client.create_job(
             jobId=job_id,
             targets=[target_arn],
-            document=json.dumps(job_document).replace("\\/", "/"),
+            document=json.dumps(job_document), # AWS envolverá esto de forma nativa
             description="Automated firmware OTA update via S3 presigned URL.",
             targetSelection='SNAPSHOT'
         )
