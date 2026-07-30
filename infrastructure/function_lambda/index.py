@@ -10,6 +10,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 iot_client = boto3.client('iot')
+s3_client = boto3.client('s3')
 
 # Define your AWS Role ARN that allows IoT to read from S3
 ROLE_ARN = "arn:aws:iam::688567305851:role/sensor-movement"
