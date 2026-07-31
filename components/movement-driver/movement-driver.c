@@ -46,7 +46,7 @@ static void pir_processing_task(void* arg) {
 
 
 			// 2. Keep it shining for 2 seconds (serves as your movement window)
-			vTaskDelay(pdMS_TO_TICKS(2000));
+			vTaskDelay(pdMS_TO_TICKS(5000));
 
 			// 3. Turn the Blue LED OFF
 			gpio_set_level(BLUE_LED_PIN, 0);

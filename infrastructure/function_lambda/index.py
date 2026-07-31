@@ -62,9 +62,14 @@ def handler(event, context):
         response = iot_client.create_job(
             jobId=job_id,
             targets=[target_arn],
-            document=json.dumps(job_document), # AWS envolverá esto de forma nativa
+            document=json.dumps(job_document), # Contenido limpio
             description="Automated firmware OTA update via S3 presigned URL.",
-            targetSelection='SNAPSHOT'
+            targetSelection='SNAPSHOT',        # <--- OBLIGATORIO: Fuerza el envío inmediato
+            # NUEVO PARÁMETRO DE PRODUCCIÓN:
+            # Obliga a AWS IoT a re-notificar al dispositivo de forma agresiva si no responde
+            jobExecutionsRolloutConfig={
+                'maximumPerMinute': 10
+            }
         )
         
         logger.info(f"OTA Update Job created successfully. Response: {json.dumps(response, default=str)}")

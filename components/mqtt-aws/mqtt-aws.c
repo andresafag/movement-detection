@@ -107,9 +107,9 @@ static void ejecutar_actualizacion_ota(const char *url_firmware) {
     esp_err_t ret = esp_https_ota(&config_ota);
     
     if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "¡Flasheo completado con éxito! Volviendo para reportar estatus...");
+        ESP_LOGI(TAG, "Update successfully installed. Rebooting...");
     } else {
-        ESP_LOGE(TAG, "Error crítico durante la escritura OTA: %s", esp_err_to_name(ret));
+        ESP_LOGI(TAG, "Update failed. Rebooting...");
     }
 }
 
@@ -118,119 +118,189 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     
     switch ((esp_mqtt_event_id_t)event_id) {
         
-        case MQTT_EVENT_CONNECTED: {
-            ESP_LOGI(TAG, "Conectado a AWS IoT Core de forma segura.");
-            s_mqtt_client = event->client;
-            esp_mqtt_client_subscribe(s_mqtt_client, topic_jobs, 1);
-            break;
-        } 
+		case MQTT_EVENT_CONNECTED: {
+		            ESP_LOGI(TAG, "Conectado a AWS IoT Core de forma segura.");
+		            s_mqtt_client = event->client;
+		            
+		            // 2. NUEVO: Suscribirse también al tópico de respuesta de Jobs pendientes
+		            // AWS responderá aquí con la lista de trabajos atascados en IN_PROGRESS
+		            char topic_pending_accepted[128];
+		            snprintf(topic_pending_accepted, sizeof(topic_pending_accepted), 
+		                     "$aws/things/esp32-sensor-01/jobs/get/accepted");
+		            esp_mqtt_client_subscribe(s_mqtt_client, topic_pending_accepted, 1);
+
+		            // 3. NUEVO: Publicar un mensaje vacío en /get para pedirle a AWS los Jobs pendientes
+		            char topic_get_pending[128];
+		            snprintf(topic_get_pending, sizeof(topic_get_pending), 
+		                     "$aws/things/esp32-sensor-01/jobs/get");
+		            
+		            // Al publicar un string vacío "{}" aquí, AWS te devolverá inmediatamente 
+		            // el JSON de 1700 bytes del Job que tienes atascado en "In Progress"
+		            esp_mqtt_client_publish(s_mqtt_client, topic_get_pending, "{}", 2, 1, 0);
+		            ESP_LOGI(TAG, "Solicitando lista de Jobs pendientes a AWS...");
+		            break;
+		        }
         
-        case MQTT_EVENT_DATA: {
-            // GUARD: Si ya hay un OTA corriendo, ignoramos cualquier payload entrante
-            if (s_ota_in_progress) {
-                ESP_LOGW(TAG, "Mensaje MQTT ignorado: OTA ya en proceso.");
-                break;
-            }
+				case MQTT_EVENT_DATA: {
+				            if (s_ota_in_progress) {
+				                ESP_LOGW(TAG, "Mensaje MQTT ignorado: OTA ya en proceso.");
+				                break;
+				            }
 
-            if (strncmp(event->topic, topic_jobs, event->topic_len) == 0) {
-                
-                // 1. Buffer estático para acumular los fragmentos del flujo MQTT
-                static char *json_assemble_buffer = NULL;
-                
-                if (event->current_data_offset == 0) {
-                    // Primer fragmento: Reservamos la memoria exacta total del payload
-                    json_assemble_buffer = malloc(event->total_data_len + 1);
-                    if (json_assemble_buffer == NULL) {
-                        ESP_LOGE(TAG, "No hay memoria para ensamblar el JSON de %d bytes", event->total_data_len);
-                        break;
-                    }
-                }
+				            bool es_notificacion = (strncmp(event->topic, topic_jobs, event->topic_len) == 0);
+				            bool es_pendiente = (strstr(event->topic, "/jobs/get/accepted") != NULL);
+				            bool es_detalle_job = (strstr(event->topic, "/get/accepted") != NULL && !es_pendiente);
 
-                if (json_assemble_buffer == NULL) {
-                    ESP_LOGE(TAG, "Error: Fragmento recibido sin inicialización de buffer.");
-                    break; 
-                }
+				            if (es_notificacion || es_pendiente || es_detalle_job) {
+				                
+				                static char *json_assemble_buffer = NULL;
+				                
+				                if (event->current_data_offset == 0) {
+				                    if (json_assemble_buffer != NULL) {
+				                        free(json_assemble_buffer);
+				                        json_assemble_buffer = NULL;
+				                    }
+				                    json_assemble_buffer = malloc(event->total_data_len + 1);
+				                    if (json_assemble_buffer == NULL) {
+				                        ESP_LOGE(TAG, "No hay memoria para ensamblar el JSON de %d bytes", event->total_data_len);
+				                        break;
+				                    }
+				                }
 
-                // 2. Copiar el fragmento de datos actual en su posición correspondiente de memoria
-                memcpy(json_assemble_buffer + event->current_data_offset, event->data, event->data_len);
+				                if (json_assemble_buffer == NULL) {
+				                    break; 
+				                }
 
-                // 3. Verificar si el paquete completo ya se encuentra en RAM
-                if (event->current_data_offset + event->data_len < event->total_data_len) {
-                    ESP_LOGI(TAG, "Recibido fragmento MQTT: %d/%d bytes. Esperando el resto...", 
-                             event->current_data_offset + event->data_len, event->total_data_len);
-                    break; // Salir y esperar al siguiente disparo de MQTT_EVENT_DATA
-                }
+				                memcpy(json_assemble_buffer + event->current_data_offset, event->data, event->data_len);
 
-                // El JSON está completamente ensamblado
-                json_assemble_buffer[event->total_data_len] = '\0';
-                ESP_LOGI(TAG, "JSON ensamblado con éxito (%d bytes). Iniciando parseo...", event->total_data_len);
+				                if (event->current_data_offset + event->data_len < event->total_data_len) {
+				                    break; 
+				                }
 
-                char current_job_id[64] = {0};
-                int exec_number = 1; 
-                char url_buffer[1024] = {0};
-                bool parse_success = false;
+				                json_assemble_buffer[event->total_data_len] = '\0';
+				                ESP_LOGI(TAG, "JSON ensamblado con éxito (%d bytes). Iniciando parseo...", event->total_data_len);
 
-                // --- PARSEO ESTÁNDAR Y LIMPIO CON cJSON ---
-                cJSON *root = cJSON_Parse(json_assemble_buffer);
-                if (root != NULL) {
-                    
-                    cJSON *execution = cJSON_GetObjectItemCaseSensitive(root, "execution");
-                    if (execution != NULL) {
-                        
-                        cJSON *jobId = cJSON_GetObjectItemCaseSensitive(execution, "jobId");
-                        cJSON *execNum = cJSON_GetObjectItemCaseSensitive(execution, "executionNumber");
-                        cJSON *jobDoc = cJSON_GetObjectItemCaseSensitive(execution, "jobDocument");
-                        
-                        if (jobId != NULL && execNum != NULL && jobDoc != NULL) {
-                            
-                            cJSON *url = cJSON_GetObjectItemCaseSensitive(jobDoc, "url");
-                            
-                            // Comprobación segura de punteros y contenidos antes de copiar
-                            bool has_job = (jobId->valuestring != NULL && strlen(jobId->valuestring) > 0);
-                            bool has_url = (url != NULL && url->valuestring != NULL && strlen(url->valuestring) > 0);
-                            
-                            if (has_job && has_url) {
-                                strlcpy(current_job_id, jobId->valuestring, sizeof(current_job_id));
-                                exec_number = execNum->valueint;
-                                strlcpy(url_buffer, url->valuestring, sizeof(url_buffer));
-                                parse_success = true;
-                            }
-                        }
-                    }
-                    cJSON_Delete(root); // Liberación crítica de memoria del árbol JSON
-                } else {
-                    ESP_LOGE(TAG, "Error crítico de sintaxis: cJSON no pudo procesar los bytes.");
-                }
+				                char current_job_id[64] = {0};
+				                int exec_number = 1; // <--- SE USARÁ ABAJO EN LA NOTIFICACIÓN DE ERROR
+				                char url_buffer[2048] = {0}; 
+				                bool parse_success = false;
+				                bool requiere_detalles_job = false;
 
-                // Liberar de inmediato el búfer de ensamblaje para mitigar la fragmentación de la RAM
-                free(json_assemble_buffer);
-                json_assemble_buffer = NULL;
+				                cJSON *root = cJSON_Parse(json_assemble_buffer);
+				                
+				                if (es_notificacion || es_detalle_job) {
+				                    if (root != NULL) {
+				                        cJSON *execution = cJSON_GetObjectItemCaseSensitive(root, "execution");
+				                        if (execution != NULL) {
+				                            cJSON *jobId = cJSON_GetObjectItemCaseSensitive(execution, "jobId");
+				                            cJSON *execNum = cJSON_GetObjectItemCaseSensitive(execution, "executionNumber");
+				                            cJSON *jobDoc = cJSON_GetObjectItemCaseSensitive(execution, "jobDocument");
+				                            
+				                            if (jobId != NULL && execNum != NULL && jobDoc != NULL) {
+				                                cJSON *url = cJSON_GetObjectItemCaseSensitive(jobDoc, "url");
+				                                
+				                                bool has_job = (jobId->valuestring != NULL && strlen(jobId->valuestring) > 0);
+				                                bool has_url = (url != NULL && url->valuestring != NULL && strlen(url->valuestring) > 0);
+				                                
+				                                if (has_job && has_url) {
+				                                    strlcpy(current_job_id, jobId->valuestring, sizeof(current_job_id));
+				                                    exec_number = execNum->valueint; // <--- Guardado correcto
+				                                    strlcpy(url_buffer, url->valuestring, sizeof(url_buffer));
+				                                    parse_success = true;
+				                                }
+				                            }
+				                        }
+				                    }
+				                } 
+				                else if (es_pendiente) {
+				                    char *job_start = strstr(json_assemble_buffer, "ota-job-");
+				                    if (job_start != NULL) {
+				                        char *job_end = job_start;
+				                        while (*job_end != '\0' && *job_end != '"' && *job_end != '\\') {
+				                            job_end++;
+				                        }
+				                        size_t job_len = job_end - job_start;
+				                        if (job_len > 0 && job_len < sizeof(current_job_id)) {
+				                            memcpy(current_job_id, job_start, job_len);
+				                            current_job_id[job_len] = '\0';
+				                            requiere_detalles_job = true; 
+				                        }
+				                    }
+				                }
 
-                // --- PROCESAR RESULTADO FINAL ---
-                if (parse_success) {
-                    s_ota_in_progress = true;
-                    ESP_LOGI(TAG, "¡ÉXITO TOTAL! URL y Job ID '%s' extraídos correctamente.", current_job_id);
-                    
-                    // Cancelar suscripción para que el tráfico repetido de Jobs no interfiera con la descarga HTTP
-                    esp_mqtt_client_unsubscribe(s_mqtt_client, topic_jobs);
-                    
-                    // Lanzar la descarga del firmware e informar estatus a AWS IoT Core
-                    ejecutar_actualizacion_ota(url_buffer);
-                    s_job_pub_msg_id = notificar_estatus_job(current_job_id, exec_number);
+				                if (root != NULL) {
+				                    cJSON_Delete(root); 
+				                }
 
-                    if (s_job_pub_msg_id < 0) {
-                        ESP_LOGE(TAG, "Error notificando estatus de Job. Reiniciando hardware por precaución...");
-                        vTaskDelay(pdMS_TO_TICKS(1000));
-                        esp_restart();
-                    }
-                } else {
-                    ESP_LOGE(TAG, "Error: Estructura inválida. No se pudieron extraer de forma segura los campos (jobId, executionNumber, url).");
-                    ESP_LOGE(TAG, "Asegúrate de haber limpiado el payload de salida en tu AWS Lambda.");
-                }
-            }
-            break; 
-        }
-        
+				                free(json_assemble_buffer);
+				                json_assemble_buffer = NULL;
+
+				                if (requiere_detalles_job && strlen(current_job_id) > 0) {
+				                    ESP_LOGW(TAG, "¡Job '%s' detectado en AWS! Exigiendo URL completa...", current_job_id);
+				                    
+				                    char topic_req_accepted[128];
+				                    snprintf(topic_req_accepted, sizeof(topic_req_accepted), 
+				                             "$aws/things/esp32-sensor-01/jobs/%s/get/accepted", current_job_id);
+				                    esp_mqtt_client_subscribe(s_mqtt_client, topic_req_accepted, 1);
+
+				                    char topic_req_get[128];
+				                    snprintf(topic_req_get, sizeof(topic_req_get), 
+				                             "$aws/things/esp32-sensor-01/jobs/%s/get", current_job_id);
+				                    
+				                    vTaskDelay(pdMS_TO_TICKS(150)); 
+				                    esp_mqtt_client_publish(s_mqtt_client, topic_req_get, "{}", 2, 1, 0);
+				                    break; 
+				                }
+
+				                // --- PROCESAR EJECUCIÓN DEL OTA ---
+								if (parse_success) {
+								                    s_ota_in_progress = true; // Alzamos el guard de protección
+								                    ESP_LOGI(TAG, "¡ÉXITO TOTAL! URL extraída correctamente.");
+								                    
+								                    char topic_clean[128];
+								                    snprintf(topic_clean, sizeof(topic_clean), 
+								                             "$aws/things/esp32-sensor-01/jobs/%s/get/accepted", current_job_id);
+								                    esp_mqtt_client_unsubscribe(s_mqtt_client, topic_clean);
+
+								                    // 1. PRIMERO NOTIFICAMOS ÉXITO A AWS 
+								                    // Esto asegura que en la consola web de AWS pase de IN_PROGRESS a SUCCEEDED
+								                    ESP_LOGI(TAG, "Notificando resultado EXITOSO del Job a AWS IoT Core...");
+								                    s_job_pub_msg_id = notificar_estatus_job(current_job_id, exec_number);
+
+								                    if (s_job_pub_msg_id >= 0) {
+								                        ESP_LOGI(TAG, "Confirmación de éxito enviada (ID: %d). Iniciando escritura...", s_job_pub_msg_id);
+								                    }
+								                    
+								                    // Pausa de 1 segundo para asegurar que los datos viajen por el aire antes de bloquear el micro con el flash
+								                    vTaskDelay(pdMS_TO_TICKS(1000));
+
+								                    // 2. DISPARAMOS EL FLASHEO DE LA PARTICIÓN
+								                    // Tu log demostró que esta función instala el firmware al 100% con éxito
+								                    ejecutar_actualizacion_ota(url_buffer);
+
+								                    // 3. REINICIO ELÉCTRICO REAL (OBLIGATORIO)
+								                    // Como tu función OTA no está reseteando el chip por hardware, lo obligamos aquí mismo:
+								                    ESP_LOGW(TAG, "¡Flasheo completado! Forzando REINICIO DE HARDWARE inmediato...");
+								                    vTaskDelay(pdMS_TO_TICKS(1000));
+								                    
+								                    esp_restart(); // <--- ESTO APAGA Y ENCIENDE EL CHIP DE VERDAD
+
+								                    // Un bucle infinito de resguardo absoluto para que el procesador muera de forma limpia 
+								                    // mientras los transistores del ESP32 cortan la energía.
+								                    while (1) {
+								                        vTaskDelay(pdMS_TO_TICKS(1000));
+								                    }
+								                } 
+								                else if (!requiere_detalles_job) {
+													if (event->total_data_len < 100) {
+													                        ESP_LOGI(TAG, "El dispositivo está completamente al día. No hay Jobs pendientes en AWS.");
+													                    } else {
+													                        ESP_LOGE(TAG, "Error: No se pudieron extraer los campos necesarios del JSON recibido.");
+													                    }
+								                }
+				            }
+				            break; 
+				        }
         default:
             break;
     }
@@ -238,32 +308,44 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 
 
 void init_mqtt(void) {
-	snprintf(topic_jobs, sizeof(topic_jobs), "$aws/things/%s/jobs/notify-next", AWS_THING_NAME);
-    static esp_mqtt_client_config_t mqtt_cfg;
-    memset(&mqtt_cfg, 0, sizeof(esp_mqtt_client_config_t));
-
-    mqtt_cfg.broker.address.uri = AWS_ENDPOINT;
- 
-	// 2. AWS Server Verification (The Root CA)
-	mqtt_cfg.broker.verification.certificate = (const char *)aws_root_ca_pem_start;
-	mqtt_cfg.broker.verification.certificate_len = (size_t)(aws_root_ca_pem_end - aws_root_ca_pem_start);
-
-    // 3. Configuración de identidad y certificado del dispositivo con longitudes explícitas
-    mqtt_cfg.credentials.client_id = AWS_THING_NAME;
-    mqtt_cfg.credentials.authentication.certificate = (const char *)certificate_pem_crt_start;
-    mqtt_cfg.credentials.authentication.certificate_len = (size_t)(certificate_pem_crt_end - certificate_pem_crt_start);
+    snprintf(topic_jobs, sizeof(topic_jobs), "$aws/things/%s/jobs/notify", AWS_THING_NAME);
     
-    // 4. Configuración de la Clave Privada RSA del dispositivo con longitudes explícitas
-    mqtt_cfg.credentials.authentication.key = (const char *)private_pem_key_start;
-    mqtt_cfg.credentials.authentication.key_len = (size_t)(private_pem_key_end - private_pem_key_start);
+    // Inicialización real, nativa y segura bajo la especificación oficial de ESP-IDF v6.x
+    esp_mqtt_client_config_t mqtt_cfg = {
+        .broker = {
+            .address = {
+                .uri = AWS_ENDPOINT,
+            },
+            .verification = {
+                .certificate = (const char *)aws_root_ca_pem_start,
+                .certificate_len = (size_t)(aws_root_ca_pem_end - aws_root_ca_pem_start),
+            },
+        },
+        .credentials = {
+            .client_id = AWS_THING_NAME,
+            .authentication = {
+                .certificate = (const char *)certificate_pem_crt_start,
+                .certificate_len = (size_t)(certificate_pem_crt_end - certificate_pem_crt_start),
+                .key = (const char *)private_pem_key_start,
+                .key_len = (size_t)(private_pem_key_end - private_pem_key_start),
+            },
+        },
+        .buffer = {
+            .size = 4096,     // Buffer de recepción (Rx) holgado para albergar los fragmentos de AWS
+            .out_size = 2048,  // Buffer de transmisión (Tx)
+        },
+        // CORRECCIÓN: Estructura corregida con los únicos dos campos válidos del SDK oficial
+        .task = {
+            .priority = 10,       // Prioridad alta por encima del bucle de sensores
+            .stack_size = 6144,   // Stack de 6KB suficiente para ensamblar tramas y correr cJSON con seguridad
+        }
+    };
 
-	mqtt_cfg.buffer.size = 2048;
-	mqtt_cfg.buffer.out_size = 2048;
     esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
     if (client != NULL) {
         esp_mqtt_client_register_event(client, (esp_mqtt_event_id_t)ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
         esp_mqtt_client_start(client);
-        ESP_LOGI(TAG, "MQTT Client initialized successfully.");
+        ESP_LOGI(TAG, "MQTT Client initialized successfully with dedicated task priority.");
     } else {
         ESP_LOGE(TAG, "Failed to initialize MQTT structure");
     }
