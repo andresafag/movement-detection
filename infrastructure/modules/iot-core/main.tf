@@ -141,7 +141,8 @@ data "aws_iam_policy_document" "iot_device_policy" {
     effect  = "Allow"
     actions = ["iot:Subscribe"]
     resources = [
-      "arn:aws:iot:${var.aws_region}:${data.aws_caller_identity.current.account_id}:topicfilter/$aws/things/${var.thing_name}/jobs/*"
+      "arn:aws:iot:${var.aws_region}:${data.aws_caller_identity.current.account_id}:topicfilter/$aws/things/${var.thing_name}/jobs/*",
+      "arn:aws:iot:${var.aws_region}:${data.aws_caller_identity.current.account_id}:topicfilter/$aws/things/${var.thing_name}/jobs"
     ]
   }
 
@@ -151,7 +152,8 @@ data "aws_iam_policy_document" "iot_device_policy" {
     effect  = "Allow"
     actions = ["iot:Publish", "iot:Receive"]
     resources = [
-      "arn:aws:iot:${var.aws_region}:${data.aws_caller_identity.current.account_id}:topic/$aws/things/${var.thing_name}/jobs/*"
+      "arn:aws:iot:${var.aws_region}:${data.aws_caller_identity.current.account_id}:topic/$aws/things/${var.thing_name}/jobs/*",
+      "arn:aws:iot:${var.aws_region}:${data.aws_caller_identity.current.account_id}:topic/$aws/things/${var.thing_name}/jobs"
     ]
   }
 
